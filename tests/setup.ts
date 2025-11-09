@@ -1,6 +1,6 @@
 import { vi, beforeEach } from "vitest";
 
-// Set up OAuth credentials for all tests
+// Set up environment variables for all tests
 process.env.REDDIT_CLIENT_ID = "test_client_id";
 process.env.REDDIT_CLIENT_SECRET = "test_client_secret";
 process.env.FRAME_EMAIL = "frame@test.com";
@@ -8,6 +8,8 @@ process.env.RESEND_FROM_EMAIL = "onboarding@resend.dev";
 process.env.RESEND_API_KEY = "resend-test-key";
 process.env.CRON_SECRET = "test_cron_secret";
 process.env.CRON_LOG_LEVEL = "debug";
+process.env.GMAIL_USER = "test@gmail.com";
+process.env.GMAIL_APP_PASSWORD = "test_gmail_password";
 
 // 1. Mock the Resend module
 // We create a mock function that we can assert against
