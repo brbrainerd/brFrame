@@ -11,8 +11,10 @@
 **Restriction:** None
 
 ### Quick Setup:
+
 1. Create Gmail App Password: https://myaccount.google.com/apppasswords
 2. Add to Vercel:
+
 ```powershell
 vercel env add GMAIL_USER production
 # brbrainerd@gmail.com
@@ -20,6 +22,7 @@ vercel env add GMAIL_USER production
 vercel env add GMAIL_APP_PASSWORD production
 # (paste 16-char password, no spaces)
 ```
+
 3. Deploy: `vercel --prod`
 
 **📖 Full guide:** See `GMAIL_SMTP_SETUP.md`
@@ -33,11 +36,14 @@ vercel env add GMAIL_APP_PASSWORD production
 **Restriction:** Relies on Gmail being available
 
 ### Quick Setup:
+
 1. Set recipient to your Gmail:
+
 ```powershell
 vercel env add FRAME_EMAIL production
 # brbrainerd@gmail.com
 ```
+
 2. In Gmail: Settings → Forwarding → Add `brbrainerd@mypixstar.com`
 3. Create filter: From `onboarding@resend.dev` → Forward to Pix-Star
 4. Deploy: `vercel --prod`
@@ -51,33 +57,37 @@ vercel env add FRAME_EMAIL production
 **Restriction:** Requires owning a domain
 
 ### Quick Setup:
+
 1. Go to https://resend.com/domains
 2. Add your domain (e.g., `brbrainerd.com`)
 3. Add DNS records
 4. Update sender:
+
 ```powershell
 vercel env add RESEND_FROM_EMAIL production
 # frame@brbrainerd.com
 ```
+
 5. Deploy: `vercel --prod`
 
 ---
 
 ## Comparison Table
 
-| Method | Setup Time | Cost | Restrictions | Reliability |
-|--------|------------|------|--------------|-------------|
-| **Gmail SMTP** ✅ | 5 min | Free | None | Excellent |
-| Gmail Forward | 2 min | Free | Requires Gmail | Good |
-| Custom Domain | 15-30 min | Free* | Need domain | Excellent |
+| Method            | Setup Time | Cost   | Restrictions   | Reliability |
+| ----------------- | ---------- | ------ | -------------- | ----------- |
+| **Gmail SMTP** ✅ | 5 min      | Free   | None           | Excellent   |
+| Gmail Forward     | 2 min      | Free   | Requires Gmail | Good        |
+| Custom Domain     | 15-30 min  | Free\* | Need domain    | Excellent   |
 
-*Assumes you already own a domain
+\*Assumes you already own a domain
 
 ---
 
 ## My Recommendation
 
 **Use Gmail SMTP** because:
+
 - ✅ No recipient restrictions
 - ✅ Free forever
 - ✅ 500 emails/day (way more than you need)

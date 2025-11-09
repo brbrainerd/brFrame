@@ -39,7 +39,13 @@ vi.mock('sharp', () => ({
   default: mockSharp,
 }))
 
-// 3. No additional mocks needed for SVG text rendering (uses Sharp)
+export const mockSatori = vi.fn(() => Promise.resolve('<svg>mock svg</svg>'))
+
+vi.mock('satori', () => ({
+  default: mockSatori,
+}))
+
+// 3. Mock Satori to capture overlay rendering without real SVG generation
 
 // 4. Mock the Nodemailer module
 export const mockSendMail = vi.fn()
@@ -57,6 +63,69 @@ vi.mock('nodemailer', () => ({
 // 5. Mock global fetch
 export const mockFetch = vi.fn()
 global.fetch = mockFetch
+
+export const defaultFetchImplementation = (url: string | URL) => {
+  const urlString = url.toString()
+
+  const today = new Date()
+  const historicalDate = new Date(today)
+  historicalDate.setFullYear(today.getFullYear() - 100)
+  const month = historicalDate.toLocaleString('en-US', { month: 'long' })
+  const day = historicalDate.getDate()
+  const year = historicalDate.getFullYear()
+
+  // OAuth token request
+  if (urlString.includes('access_token')) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: () => Promise.resolve({ access_token: 'mock_oauth_token_12345' }),
+    } as Response)
+  }
+
+  // Reddit API request
+  if (urlString.includes('oauth.reddit.com')) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: () => Promise.resolve(''),
+      json: () =>
+        Promise.resolve({
+          data: {
+            children: [
+              {
+                data: {
+                  title: `[${month} ${day}, ${year}] Mocked Historical Post`,
+                  url: 'http://mock.com/image.jpg',
+                  score: 150,
+                  permalink: '/r/100yearsago/comments/test',
+                  post_hint: 'image',
+                },
+              },
+            ],
+          },
+        }),
+    } as Response)
+  }
+
+  // Font fetch for overlay rendering
+  if (urlString.includes('fonts.gstatic.com')) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(2048)),
+    } as Response)
+  }
+
+  // Image download
+  return Promise.resolve({
+    ok: true,
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
+  } as Response)
+}
 
 // 6. Reset all mocks before each test to ensure isolation
 beforeEach(() => {
@@ -80,63 +149,8 @@ beforeEach(() => {
   mockCreateTransport.mockReturnValue(mockTransporter)
 
   // Provide a default "happy path" mock for fetch
-  // Generate today's historical date (100 years ago) for the title
-  const today = new Date()
-  const historicalDate = new Date(today)
-  historicalDate.setFullYear(today.getFullYear() - 100)
-  const month = historicalDate.toLocaleString('en-US', { month: 'long' })
-  const day = historicalDate.getDate()
-  const year = historicalDate.getFullYear()
-  
-  // Default fetch mock: OAuth → Reddit API → Image download
-  // Tests can override this with their own mockFetch setup
-  mockFetch.mockImplementation((url: string | URL) => {
-    const urlString = url.toString()
-    
-    // OAuth token request
-    if (urlString.includes('access_token')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        json: () => Promise.resolve({ access_token: 'mock_oauth_token_12345' }),
-      } as Response)
-    }
-    
-    // Reddit API request
-    if (urlString.includes('oauth.reddit.com')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        text: () => Promise.resolve(''),
-        json: () =>
-          Promise.resolve({
-            data: {
-              children: [
-                {
-                  data: {
-                    title: `[${month} ${day}, ${year}] Mocked Historical Post`,
-                    url: 'http://mock.com/image.jpg',
-                    score: 150,
-                    permalink: '/r/100yearsago/comments/test',
-                    post_hint: 'image',
-                  },
-                },
-              ],
-            },
-          }),
-      } as Response)
-    }
-    
-    // Image download
-    return Promise.resolve({
-      ok: true,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
-    } as Response)
-  })
+  mockFetch.mockImplementation(defaultFetchImplementation)
 
   // Provide a default "happy path" mock for Resend
   mockResendSend.mockResolvedValue({ data: { id: 'resend_123' }, error: null })
 })
-

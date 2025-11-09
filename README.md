@@ -24,6 +24,7 @@ A Next.js 16 serverless application that delivers daily historical photos from R
 ## Getting Started
 
 ### 1. Install Dependencies
+
 ```bash
 npm install
 ```
@@ -62,6 +63,7 @@ npm run test:ui
 ```
 
 **What's tested:**
+
 - ✅ Authorization (valid/invalid CRON_SECRET)
 - ✅ Reddit API integration (success, failure, no images)
 - ✅ Image processing with Sharp + Satori (success, corrupt overlay)
@@ -78,6 +80,7 @@ npm run test:e2e
 ```
 
 **What's verified:**
+
 - 🌐 Live Reddit API connectivity
 - 🖼️ Real image download and processing
 - 📧 Actual email delivery to your Pix-Star frame
@@ -106,6 +109,7 @@ VERCEL_URL=your-app.vercel.app npm run test:manual
 3. Together they provide both speed and confidence without flakiness
 
 **Coverage Goals:**
+
 - Lines: 95%
 - Functions: 95%
 - Branches: 95%

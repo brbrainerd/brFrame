@@ -63,6 +63,7 @@ vercel env add RESEND_FROM_EMAIL production
 ```
 
 Or configure them in the Vercel Dashboard:
+
 1. Go to your project on vercel.com
 2. Settings → Environment Variables
 3. Add all four variables
@@ -96,16 +97,19 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://your-project.vercel.app
 ## Troubleshooting
 
 ### Cron Job Not Running
+
 - Verify environment variables are set in production
 - Check Vercel logs for errors
 - Ensure CRON_SECRET matches exactly
 
 ### Email Not Sending
+
 - Verify Resend API key is valid
 - Check that "from" email domain is verified in Resend
 - Confirm frame email address is correct
 
 ### Images Not Displaying
+
 - Verify Pix-Star frame has email-to-frame enabled
 - Check image size/format compatibility
 - Review Vercel function logs for processing errors
@@ -113,23 +117,30 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" https://your-project.vercel.app
 ## Customization
 
 ### Change Schedule
+
 Edit `vercel.json`:
+
 ```json
 {
-  "crons": [{
-    "path": "/api/cron",
-    "schedule": "0 14 * * *"  // Modify this
-  }]
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 14 * * *" // Modify this
+    }
+  ]
 }
 ```
 
 Then redeploy:
+
 ```bash
 vercel --prod
 ```
 
 ### Change Subreddit
+
 Edit `app/api/cron/route.ts` and change:
+
 ```typescript
 const SUBREDDIT = "your_subreddit_here";
 ```

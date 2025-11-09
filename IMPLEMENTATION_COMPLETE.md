@@ -8,9 +8,11 @@
 ## What Was Implemented
 
 ### ✅ Reddit OAuth Authentication
+
 Implemented free-tier OAuth2 `client_credentials` flow to bypass Reddit's IP blocking of Vercel/AWS.
 
 **Changes Made:**
+
 1. Added `getRedditAccessToken()` function to fetch OAuth tokens
 2. Updated Reddit API endpoint from `old.reddit.com` to `oauth.reddit.com`
 3. Added Bearer token authorization to all Reddit API calls
@@ -25,18 +27,18 @@ Implemented free-tier OAuth2 `client_credentials` flow to bypass Reddit's IP blo
 async function getRedditAccessToken(): Promise<string> {
   const clientId = process.env.REDDIT_CLIENT_ID;
   const clientSecret = process.env.REDDIT_CLIENT_SECRET;
-  
+
   // Fetches token from Reddit OAuth API
-  const response = await fetch('https://www.reddit.com/api/v1/access_token', {
-    method: 'POST',
+  const response = await fetch("https://www.reddit.com/api/v1/access_token", {
+    method: "POST",
     headers: {
-      'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'brFrame/1.0.0'
+      Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "brFrame/1.0.0",
     },
-    body: 'grant_type=client_credentials'
+    body: "grant_type=client_credentials",
   });
-  
+
   const data = await response.json();
   return data.access_token;
 }
@@ -47,10 +49,10 @@ const response = await fetch(
   `https://oauth.reddit.com/r/${SUBREDDIT}/hot?limit=50`,
   {
     headers: {
-      "Authorization": `Bearer ${accessToken}`,
-      "User-Agent": "brFrame/1.0.0"
-    }
-  }
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": "brFrame/1.0.0",
+    },
+  },
 );
 ```
 
@@ -77,6 +79,7 @@ const response = await fetch(
 #### Local Development
 
 Update `.env.local`:
+
 ```bash
 # Existing vars
 CRON_SECRET="gspV5zW6DE0iVo4FL4Pzwz4KWTQSBc58W8yWG3ZNsCs="
@@ -115,6 +118,7 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
 ```
 
 Expected successful output:
+
 ```
 {
   "success": true,
@@ -127,6 +131,7 @@ Expected successful output:
 ## What This Fixes
 
 ### Before OAuth (Broken)
+
 ```
 ❌ Reddit API call → 403 Forbidden "Blocked"
 ❌ Vercel IP ranges blocked by Reddit
@@ -134,9 +139,10 @@ Expected successful output:
 ```
 
 ### After OAuth (Working)
+
 ```
 ✅ OAuth token request → 200 OK
-✅ Reddit API call with Bearer token → 200 OK  
+✅ Reddit API call with Bearer token → 200 OK
 ✅ Successfully fetches 50 posts from r/100yearsago
 ✅ Filters for today's historical date
 ✅ Processes and emails highest-rated photo
@@ -144,7 +150,7 @@ Expected successful output:
 
 ---
 
-##  Features Preserved
+## Features Preserved
 
 All original improvements remain intact:
 
@@ -162,11 +168,13 @@ All original improvements remain intact:
 ## Testing Status
 
 ### Unit Tests
+
 - **Status:** ⚠️ Need minor mock updates for OAuth
 - **Note:** Core logic tested and working
 - **Action:** Run `npm run test:unit` after adding credentials
 
-### E2E Tests  
+### E2E Tests
+
 - **Status:** ✅ Working with local credentials
 - **How to test:**
   1. Add Reddit OAuth credentials to `.env.local`
@@ -174,6 +182,7 @@ All original improvements remain intact:
   3. Expected: All tests pass, email sent successfully
 
 ### Build
+
 - **Status:** ✅ Production build successful
 - **TypeScript:** ✅ No errors
 - **Next.js:** ✅ Compiles cleanly
@@ -186,7 +195,7 @@ After completing Steps 1-3 above:
 
 - [ ] Reddit app created at reddit.com/prefs/apps
 - [ ] `REDDIT_CLIENT_ID` copied from app
-- [ ] `REDDIT_CLIENT_SECRET` copied from app  
+- [ ] `REDDIT_CLIENT_SECRET` copied from app
 - [ ] Both added to `.env.local`
 - [ ] Both added to Vercel production environment
 - [ ] Local build successful (`npm run build`)
@@ -199,15 +208,19 @@ After completing Steps 1-3 above:
 ## Troubleshooting
 
 ### "Reddit OAuth credentials not configured"
+
 **Fix:** Add `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` to environment variables
 
-### "Reddit OAuth failed: 401 Unauthorized"  
+### "Reddit OAuth failed: 401 Unauthorized"
+
 **Fix:** Regenerate secret at reddit.com/prefs/apps → Edit app → Regenerate secret
 
 ### Still getting "403 Blocked"
+
 **Fix:** Verify you're using `oauth.reddit.com` endpoint (automatic in new code)
 
 ### Rate Limits
+
 - OAuth API: 60 requests/minute
 - Your cron: 1 request/day
 - ✅ Well within limits
@@ -238,7 +251,7 @@ After completing Steps 1-3 above:
 Once you complete the 3 steps above, you should see:
 
 1. **Local development:** E2E tests pass
-2. **Production:** Cron job runs daily at 2 PM EST  
+2. **Production:** Cron job runs daily at 2 PM EST
 3. **Email:** Historical photo delivered to Pix-Star frame
 4. **Logs:** No 403 errors, clean OAuth flow
 5. **Frame:** New historical photo every day

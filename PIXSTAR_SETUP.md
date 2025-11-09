@@ -78,20 +78,24 @@ After configuration:
 ### Troubleshooting
 
 **Issue**: Photos still require approval
+
 - **Solution**: Check frame firmware is up-to-date (Settings → About → Check for updates)
 
 **Issue**: Photos not appearing
+
 - **Solution**: Verify email whitelist includes sender address
 - **Solution**: Check frame has active internet connection
 - **Solution**: Verify frame storage isn't full (Settings → Storage)
 
 **Issue**: Photos appear but aren't in slideshow
+
 - **Solution**: Enable "Email photos" in slideshow sources
 - **Solution**: Restart frame (Settings → Power → Restart)
 
 ### Daily Automation
 
 Current cron schedule:
+
 - **Time**: 8:00 AM EST daily
 - **Sender**: brbrainerd@gmail.com
 - **Recipient**: brbrainerd@mypixstar.com
@@ -101,6 +105,7 @@ Current cron schedule:
 ### Frame Behavior
 
 With auto-display enabled:
+
 - Email arrives at frame's email address
 - Frame checks email every 15 minutes (configurable)
 - New photo is automatically imported

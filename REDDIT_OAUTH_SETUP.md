@@ -11,6 +11,7 @@ This guide walks you through creating a Reddit app and configuring OAuth credent
 2. **Click "Create App" or "Create Another App"** (at the bottom)
 
 3. **Fill in the Application Details:**
+
    ```
    Name: brFrame Historical Photos
    App type: [Select "script"]
@@ -23,13 +24,13 @@ This guide walks you through creating a Reddit app and configuring OAuth credent
 
 5. **Copy Your Credentials:**
    After creation, you'll see your app listed. Note these values:
-   
+
    ```
    [App Icon] brFrame Historical Photos
-   
+
    personal use script
    <--- THIS IS YOUR CLIENT_ID (under "personal use script")
-   
+
    secret: <--- Click "edit" to see your CLIENT_SECRET
    ```
 
@@ -85,6 +86,7 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" http://localhost:3000/api/cron
 ```
 
 Expected output:
+
 ```
 [Reddit OAuth] Requesting access token...
 [Reddit OAuth] Access token obtained successfully
@@ -119,30 +121,35 @@ curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
 ## Troubleshooting
 
 ### Error: "Reddit OAuth credentials not configured"
+
 - **Cause:** Environment variables not set
 - **Fix:** Verify `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` are in your env files
 
 ### Error: "Reddit OAuth failed: 401 Unauthorized"
+
 - **Cause:** Invalid credentials
-- **Fix:** 
+- **Fix:**
   1. Go back to https://www.reddit.com/prefs/apps
   2. Click "edit" on your app
   3. Regenerate the secret if needed
   4. Update your environment variables
 
 ### Error: "Reddit OAuth failed: 403 Forbidden"
+
 - **Cause:** App might be suspended or rate limited
-- **Fix:** 
+- **Fix:**
   1. Check your Reddit app status at reddit.com/prefs/apps
   2. Ensure you're not making too many requests (rate limit: 60 requests/minute)
 
 ### Still Getting "Blocked" Error
+
 - **Cause:** You might still be using old.reddit.com endpoint
 - **Fix:** Verify the code uses `oauth.reddit.com` endpoint (should be automatic after update)
 
 ## Rate Limits
 
 Reddit OAuth API limits:
+
 - **60 requests per minute** for authenticated apps
 - **10 requests per minute** for unauthenticated requests
 
@@ -173,6 +180,7 @@ Your cron job runs once per day, well within limits.
 ---
 
 **Need Help?**
+
 - Check `REDDIT_API_ISSUE.md` for alternative solutions
 - Review `TEST_RESULTS.md` for test status
 - Check Vercel logs: `vercel logs https://your-deployment-url.vercel.app`

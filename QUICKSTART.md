@@ -5,6 +5,7 @@
 Your brFrame repository is ready! Here's what has been set up:
 
 ### ✅ Installed Tools
+
 - Node.js v24.5.0
 - Git v2.50.1
 - Jujutsu (jj) v0.35.0
@@ -12,6 +13,7 @@ Your brFrame repository is ready! Here's what has been set up:
 - All npm dependencies
 
 ### ✅ Project Structure
+
 ```
 brFrame/
 ├── app/
@@ -26,11 +28,13 @@ brFrame/
 ```
 
 ### ✅ Version Control
+
 - Git repository initialized
 - Jujutsu colocated repository initialized
 - Initial commit completed
 
 ### ✅ Build Verified
+
 - `npm run build` completed successfully
 - TypeScript configuration validated
 - All dependencies installed
@@ -124,6 +128,7 @@ vercel logs              # View deployment logs
 ## Support
 
 If you run into issues:
+
 1. Check `DEPLOYMENT.md` for troubleshooting
 2. Review Vercel logs: `vercel logs`
 3. Check Resend dashboard for email delivery status

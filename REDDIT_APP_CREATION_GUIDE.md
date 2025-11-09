@@ -9,6 +9,7 @@
 ### 1. On the Reddit Apps Page
 
 Look for a button at the bottom that says either:
+
 - **"Create App"** (if you have no apps yet), OR
 - **"Create Another App"** (if you already have apps)
 
@@ -71,7 +72,7 @@ After clicking "Create app", you'll see your new app listed. It will look like t
    - It's usually 20-22 characters
    - Example: `AbCdEf12GhIjKl3MnOpQ`
 
-2. **CLIENT_SECRET:** 
+2. **CLIENT_SECRET:**
    - Click the **[edit]** button
    - Scroll down to where it says "secret:"
    - Copy the long string (usually 27 characters)
@@ -88,6 +89,7 @@ Once you have both credentials copied, run this command in PowerShell:
 ```
 
 The script will:
+
 1. Ask for your CLIENT_ID → paste it
 2. Ask for your CLIENT_SECRET → paste it (it will be hidden as you type)
 3. Add them to `.env.local`
@@ -131,21 +133,25 @@ vercel env add REDDIT_CLIENT_SECRET production
 ## Troubleshooting
 
 ### Can't find "Create App" button?
+
 - Scroll to the very bottom of the page
 - You must be logged into Reddit
 - Your account must be at least 30 days old (Reddit requirement)
 
 ### Client ID not showing?
+
 - Make sure you clicked "Create app"
 - Refresh the page
 - The Client ID appears directly under "personal use script"
 
 ### Can't see Client Secret?
+
 - Click the **[edit]** button on your app
 - Scroll down to the "secret:" field
 - The secret is hidden by default - it's there, just copy it
 
 ### Script won't run?
+
 - Make sure you're in the `brFrame` directory
 - Run: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
 - Then run: `.\add-reddit-credentials.ps1`

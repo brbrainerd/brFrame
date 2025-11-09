@@ -8,8 +8,6 @@ import {
   mockSharpBuffer,
   mockSendMail,
   mockCreateTransport,
-  mockSatori,
-  defaultFetchImplementation,
 } from '../setup'
 import { NextRequest } from 'next/server'
 import 'dotenv/config'
@@ -132,7 +130,7 @@ describe('Unit Test: /api/cron GET Handler', () => {
         ok: true,
         json: () => Promise.resolve({ access_token: 'mock_oauth_token' }),
       })
-      .mockResolvedValue({
+      .mockResolvedValueOnce({
         ok: true,
         json: () =>
           Promise.resolve({
@@ -150,7 +148,9 @@ describe('Unit Test: /api/cron GET Handler', () => {
             },
           }),
       })
-    
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockFontResponse())
+
     const req = createMockRequest()
     const response = await GET(req)
     const json = await response.json()
@@ -171,13 +171,13 @@ describe('Unit Test: /api/cron GET Handler', () => {
         ok: true,
         json: () => Promise.resolve({ access_token: 'mock_oauth_token' }),
       })
-      .mockResolvedValue({
+      .mockResolvedValueOnce({
         ok: false,
         status: 404,
         statusText: 'Not Found',
         text: () => Promise.resolve('<html>Error page</html>')
       })
-    
+
     const req = createMockRequest()
     const response = await GET(req)
     const json = await response.json()
@@ -199,7 +199,6 @@ describe('Unit Test: /api/cron GET Handler', () => {
         json: () => Promise.resolve({ access_token: 'mock_oauth_token' }),
       })
       .mockRejectedValue(new Error('Reddit is down'))
-    
     const req = createMockRequest()
     const response = await GET(req)
     const json = await response.json()
@@ -257,7 +256,7 @@ describe('Unit Test: /api/cron GET Handler', () => {
                     media_metadata: {
                       'image1': {
                         s: {
-                          u: 'http://mock.com/gallery-image.jpg&amp;test=1'
+                          u: 'http://mock.com/gallery-image.jpg\u0026test=1'
                         }
                       }
                     },
@@ -270,11 +269,10 @@ describe('Unit Test: /api/cron GET Handler', () => {
             },
           }),
       })
-      .mockResolvedValue({
-        ok: true,
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
-      })
-    
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockImageResponse())
+
     const req = createMockRequest()
     const response = await GET(req)
     const json = await response.json()
@@ -316,7 +314,7 @@ describe('Unit Test: /api/cron GET Handler', () => {
                     preview: {
                       images: [{
                         source: {
-                          url: 'http://mock.com/preview-image.jpg&amp;preview=true'
+                          url: 'http://mock.com/preview-image.jpg\u0026preview=true'
                         }
                       }]
                     },
@@ -328,11 +326,10 @@ describe('Unit Test: /api/cron GET Handler', () => {
             },
           }),
       })
-      .mockResolvedValue({
-        ok: true,
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
-      })
-    
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockImageResponse())
+
     const req = createMockRequest()
     const response = await GET(req)
     const json = await response.json()
@@ -440,11 +437,10 @@ describe('Unit Test: /api/cron GET Handler', () => {
             },
           }),
       })
-      .mockResolvedValue({
-        ok: true,
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
-      })
-    
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockImageResponse())
+
     const req = createMockRequest()
     const response = await GET(req)
     const json = await response.json()
@@ -525,11 +521,10 @@ describe('Unit Test: /api/cron GET Handler', () => {
             },
           }),
       })
-      .mockResolvedValue({
-        ok: true,
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
-      })
-    
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockFontResponse())
+      .mockResolvedValueOnce(createMockImageResponse())
+
     const req = createMockRequest()
     const response = await GET(req)
     

@@ -8,16 +8,19 @@
 ## 🕐 Schedule Change
 
 ### Previous Schedule
+
 - **Time:** 2 PM EST (14:00 EST)
 - **UTC:** 19:00 UTC (EST = UTC-5)
 - **Cron:** `0 14 * * *` (incorrect - was using EST hour directly)
 
 ### New Schedule
+
 - **Time:** 8 AM EST
 - **UTC:** 13:00 UTC (8 AM EST = 13:00 UTC during standard time)
 - **Cron:** `0 13 * * *`
 
 ### Timezone Calculation ✅
+
 ```
 8 AM EST = 8:00 EST
 EST = UTC - 5 hours
@@ -32,6 +35,7 @@ Cron expression: 0 13 * * *
 ## ✅ Verification Results
 
 ### 1. E2E Test: PASSED
+
 ```
 Duration: 4.38s
 Status: ✅ PASSED
@@ -46,6 +50,7 @@ Workflow verified:
 ```
 
 ### 2. Production Test: SUCCESS
+
 ```json
 {
   "success": true,
@@ -54,6 +59,7 @@ Workflow verified:
 ```
 
 ### 3. Deployment: LIVE
+
 - **URL:** https://br-frame-ofyynx2ix-brbrainerds-projects.vercel.app
 - **Deployment ID:** 5KjbaCxAcUYCZVWskUQtjqDHvJ4w
 - **Status:** Active
@@ -64,6 +70,7 @@ Workflow verified:
 ## 📧 Email Verification
 
 ### Check Your Inbox
+
 Two emails were just sent to `brbrainerd@mypixstar.com`:
 
 1. **E2E Test Email**
@@ -75,6 +82,7 @@ Two emails were just sent to `brbrainerd@mypixstar.com`:
    - Sent: ~8:55 AM EST
 
 ### Verify on Pix-Star
+
 1. Check your Pix-Star frame display
 2. Look for the November 9, 1925 historical photo
 3. Image should show: "The Schutzstaffel (SS) is officially founded..."
@@ -85,12 +93,14 @@ Two emails were just sent to `brbrainerd@mypixstar.com`:
 ## 📅 Cron Schedule Details
 
 ### When Will It Run?
+
 - **Daily at:** 8:00 AM EST (13:00 UTC)
 - **Next run:** Tomorrow (November 10, 2025) at 8:00 AM EST
 - **Frequency:** Once per day
 - **Timezone:** UTC (converted from EST)
 
 ### Cron Expression Breakdown
+
 ```
 0 13 * * *
 │ │  │ │ │
@@ -106,17 +116,21 @@ Two emails were just sent to `brbrainerd@mypixstar.com`:
 ## 🌍 Timezone Reference
 
 ### EST (Eastern Standard Time)
+
 - **UTC Offset:** UTC-5
 - **Used:** November to March (winter months)
 - **8 AM EST = 13:00 UTC** ✅
 
 ### EDT (Eastern Daylight Time)
+
 - **UTC Offset:** UTC-4
 - **Used:** March to November (summer months)
 - **13:00 UTC = 9 AM EDT** (one hour later)
 
 ### Why This Matters
+
 The cron runs at a **fixed UTC time** (13:00 UTC). This means:
+
 - **Winter (EST):** Runs at 8 AM local time ✅
 - **Summer (EDT):** Runs at 9 AM local time
 
@@ -129,17 +143,20 @@ This is expected behavior for UTC-based cron jobs. If you want it to **always** 
 ## 🔍 Verification Commands
 
 ### Manual Trigger
+
 ```powershell
 $secret = (Get-Content .env.local | Select-String 'CRON_SECRET=' | ForEach-Object { ($_ -replace 'CRON_SECRET="', '') -replace '"', '' }).Trim()
 Invoke-RestMethod -Uri "https://br-frame-ofyynx2ix-brbrainerds-projects.vercel.app/api/cron" -Headers @{Authorization="Bearer $secret"} -Method Get
 ```
 
 ### Check Vercel Logs
+
 ```powershell
 vercel logs br-frame-ofyynx2ix-brbrainerds-projects.vercel.app
 ```
 
 ### Run E2E Test
+
 ```powershell
 npm run test:e2e
 ```
@@ -151,18 +168,21 @@ npm run test:e2e
 ### System Status: ✅ OPERATIONAL
 
 **Infrastructure:**
+
 - ✅ Vercel deployment active
 - ✅ Cron schedule updated
 - ✅ Environment variables configured
 - ✅ Gmail SMTP operational
 
 **Functionality:**
+
 - ✅ Reddit OAuth working
 - ✅ Image processing working
 - ✅ Email delivery working
 - ✅ E2E tests passing
 
 **Emails Sent Today:**
+
 - E2E test: 1 email ✅
 - Production test: 1 email ✅
 - **Total: 2 emails delivered successfully**
@@ -172,6 +192,7 @@ npm run test:e2e
 ## 🎯 What Happens Next
 
 ### Daily Schedule
+
 ```
 8:00 AM EST - Cron job triggers
   ↓
@@ -199,21 +220,25 @@ npm run test:e2e
 ## ✅ Verification Checklist
 
 **Code Changes:**
+
 - ✅ Updated `vercel.json` cron schedule
 - ✅ Changed from `0 14 * * *` to `0 13 * * *`
 - ✅ Deployed to production
 
 **Testing:**
+
 - ✅ E2E test passed (4.38s)
 - ✅ Production endpoint tested
 - ✅ 2 emails sent successfully
 
 **Infrastructure:**
+
 - ✅ Vercel deployment active
 - ✅ Cron schedule updated
 - ✅ No timezone conversion errors
 
 **Next Steps:**
+
 - ✅ Check Gmail inbox for 2 emails
 - ✅ Verify Pix-Star frame display
 - ✅ Wait for tomorrow's automatic run at 8 AM EST
@@ -223,6 +248,7 @@ npm run test:e2e
 ## 🔮 Expected Behavior
 
 ### Tomorrow (November 10, 2025)
+
 - **Time:** 8:00 AM EST (13:00 UTC)
 - **Date Searched:** November 10, 1925 (100 years ago)
 - **Action:** Fetch, process, and send new historical photo
@@ -230,6 +256,7 @@ npm run test:e2e
 - **Display:** Frame updates within minutes
 
 ### Future Days
+
 Same process repeats daily at 8:00 AM EST, always searching for the date from 100 years ago.
 
 ---
@@ -237,13 +264,17 @@ Same process repeats daily at 8:00 AM EST, always searching for the date from 10
 ## 📝 Notes
 
 ### Why UTC?
+
 Vercel cron jobs use UTC time, not local time. This is standard for cloud platforms to avoid timezone ambiguity.
 
 ### DST Consideration
+
 During Daylight Saving Time (summer), the job will run at 9 AM EDT instead of 8 AM EDT. This is normal UTC behavior.
 
 ### If You Want Exact 8 AM Year-Round
+
 You'd need:
+
 1. A timezone-aware scheduler (not available in Vercel cron), OR
 2. Manually adjust cron twice a year for DST changes
 

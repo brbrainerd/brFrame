@@ -92,6 +92,7 @@ curl -H "Authorization: Bearer $secret" https://br-frame-hyf49wq52-brbrainerds-p
 ```
 
 Expected success response:
+
 ```json
 {
   "success": true,
@@ -122,15 +123,18 @@ When `GMAIL_APP_PASSWORD` is set, the system uses Gmail SMTP and bypasses all Re
 ## Troubleshooting
 
 ### "Invalid credentials" Error
+
 - Make sure you copied the app password correctly (no spaces)
 - Verify 2-Step Verification is enabled
 - Try regenerating the app password
 
 ### "Less secure app access" Error
+
 - Gmail no longer uses "less secure apps"
 - You MUST use App Passwords (requires 2-Step Verification)
 
 ### Email not arriving at Pix-Star
+
 - Check your Gmail Sent folder to confirm it was sent
 - Check Pix-Star spam/junk folder
 - Verify the Pix-Star email address is correct: `brbrainerd@mypixstar.com`
@@ -140,14 +144,14 @@ When `GMAIL_APP_PASSWORD` is set, the system uses Gmail SMTP and bypasses all Re
 
 ## Comparison: Gmail vs Resend
 
-| Feature | Gmail SMTP | Resend |
-|---------|------------|--------|
-| **Recipient restrictions** | None | Free tier: verified domains only |
-| **Daily limit** | 500 emails/day | 3,000 emails/month |
-| **Setup complexity** | Medium (app password) | Easy (API key) |
-| **Deliverability** | Excellent | Excellent |
-| **Cost** | Free | Free tier available |
-| **Best for** | Personal projects | Production apps |
+| Feature                    | Gmail SMTP            | Resend                           |
+| -------------------------- | --------------------- | -------------------------------- |
+| **Recipient restrictions** | None                  | Free tier: verified domains only |
+| **Daily limit**            | 500 emails/day        | 3,000 emails/month               |
+| **Setup complexity**       | Medium (app password) | Easy (API key)                   |
+| **Deliverability**         | Excellent             | Excellent                        |
+| **Cost**                   | Free                  | Free tier available              |
+| **Best for**               | Personal projects     | Production apps                  |
 
 ---
 
@@ -164,6 +168,7 @@ When `GMAIL_APP_PASSWORD` is set, the system uses Gmail SMTP and bypasses all Re
 ## Next Steps
 
 Once Gmail SMTP is working:
+
 1. ✅ Verify email arrives at your Pix-Star
 2. ✅ Check that image displays correctly
 3. ✅ Verify cron job runs daily at 2 PM EST
