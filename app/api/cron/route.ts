@@ -368,6 +368,11 @@ export async function GET(request: NextRequest) {
     // Calculate dynamic overlay height (simple fixed height based on content)
     const overlayHeight = 160;  // Fixed height for consistency
     
+    // Fetch Inter font from Google Fonts for Satori
+    console.log('[Image Processing] Fetching font for text rendering...');
+    const fontResponse = await fetch('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff');
+    const fontData = await fontResponse.arrayBuffer();
+    
     // Create SVG markup using Satori with React elements
     const svg = await satori(
       React.createElement(
@@ -382,7 +387,7 @@ export async function GET(request: NextRequest) {
             padding: '20px',
             backgroundColor: 'rgba(0, 0, 0, 0.9)',
             color: 'white',
-            fontFamily: 'sans-serif',
+            fontFamily: 'Inter',
           },
         },
         React.createElement('div', { style: { fontSize: '18px', marginBottom: '8px' } }, attribution),
@@ -393,7 +398,14 @@ export async function GET(request: NextRequest) {
       {
         width: 1024,
         height: overlayHeight,
-        fonts: [],  // Use system fonts
+        fonts: [
+          {
+            name: 'Inter',
+            data: fontData,
+            weight: 400,
+            style: 'normal',
+          },
+        ],
       }
     );
     
