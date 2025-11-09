@@ -34,23 +34,11 @@ vi.mock('sharp', () => ({
   default: mockSharp,
 }))
 
-// 3. Mock the Canvas module
-export const mockCanvasToBuffer = vi.fn(() => Buffer.from('mock-canvas-overlay'))
-export const mockCanvasContext = {
-  fillStyle: '',
-  font: '',
-  fillRect: vi.fn(),
-  fillText: vi.fn(),
-  measureText: vi.fn(() => ({ width: 100 })),
-}
-export const mockCanvas = {
-  getContext: vi.fn(() => mockCanvasContext),
-  toBuffer: mockCanvasToBuffer,
-}
-export const mockCreateCanvas = vi.fn(() => mockCanvas)
+// 3. Mock the Satori module
+export const mockSatori = vi.fn(() => Promise.resolve('<svg>mock svg</svg>'))
 
-vi.mock('canvas', () => ({
-  createCanvas: mockCreateCanvas,
+vi.mock('satori', () => ({
+  default: mockSatori,
 }))
 
 // 4. Mock the Nodemailer module
@@ -85,11 +73,8 @@ beforeEach(() => {
   mockSharpInstance.toBuffer.mockResolvedValue(mockSharpBuffer)
   mockSharp.mockReturnValue(mockSharpInstance)
   
-  // Reset Canvas mocks
-  mockCanvasToBuffer.mockReturnValue(Buffer.from('mock-canvas-overlay'))
-  mockCanvasContext.measureText.mockReturnValue({ width: 100 })
-  mockCanvas.getContext.mockReturnValue(mockCanvasContext)
-  mockCreateCanvas.mockReturnValue(mockCanvas)
+  // Reset Satori mocks
+  mockSatori.mockResolvedValue('<svg>mock svg</svg>')
 
   // Reset Nodemailer mocks
   mockSendMail.mockResolvedValue({ messageId: '<mock-message-id@gmail.com>' })

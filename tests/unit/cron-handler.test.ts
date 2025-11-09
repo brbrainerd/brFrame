@@ -8,9 +8,7 @@ import {
   mockSharpBuffer,
   mockSendMail,
   mockCreateTransport,
-  mockCreateCanvas,
-  mockCanvas,
-  mockCanvasContext,
+  mockSatori,
 } from '../setup'
 import { NextRequest } from 'next/server'
 import 'dotenv/config'
@@ -374,7 +372,7 @@ describe('Unit Test: /api/cron GET Handler', () => {
     expect(json.message).toContain('mock-message-id@gmail.com')
   })
 
-  it('should create dynamic canvas overlay based on text length', async () => {
+  it('should create dynamic overlay using Satori for serverless rendering', async () => {
     process.env.REDDIT_CLIENT_ID = 'test_client_id'
     process.env.REDDIT_CLIENT_SECRET = 'test_client_secret'
     delete process.env.GMAIL_APP_PASSWORD
@@ -382,12 +380,11 @@ describe('Unit Test: /api/cron GET Handler', () => {
     const req = createMockRequest()
     const response = await GET(req)
     
-    // Verify Canvas was created for text overlay
-    expect(mockCreateCanvas).toHaveBeenCalled()
-    expect(mockCanvas.getContext).toHaveBeenCalledWith('2d')
-    expect(mockCanvasContext.fillRect).toHaveBeenCalled()
-    expect(mockCanvasContext.fillText).toHaveBeenCalled()
-    expect(mockCanvas.toBuffer).toHaveBeenCalledWith('image/png')
+    // Verify Satori was called for text overlay
+    expect(mockSatori).toHaveBeenCalled()
+    const satoriCall = mockSatori.mock.calls[0]
+    expect(satoriCall[0]).toHaveProperty('type', 'div')
+    expect(satoriCall[1]).toHaveProperty('width', 1024)
     
     expect(response.status).toBe(200)
   })
@@ -477,7 +474,7 @@ describe('Unit Test: /api/cron GET Handler', () => {
     expect(json.error).toContain('Reddit OAuth failed')
   })
 
-  it('should handle long titles with text wrapping', async () => {
+  it('should handle long titles with truncation', async () => {
     process.env.REDDIT_CLIENT_ID = 'test_client_id'
     process.env.REDDIT_CLIENT_SECRET = 'test_client_secret'
     delete process.env.GMAIL_APP_PASSWORD
@@ -489,7 +486,7 @@ describe('Unit Test: /api/cron GET Handler', () => {
     const day = historicalDate.getDate()
     const year = historicalDate.getFullYear()
     
-    const longTitle = `[${month} ${day}, ${year}] This is an extremely long title that should definitely wrap across multiple lines when rendered on the canvas overlay to ensure readability`
+    const longTitle = `[${month} ${day}, ${year}] This is an extremely long title that should definitely be truncated when it exceeds the maximum character limit to ensure readability on the display`
     
     mockFetch
       .mockResolvedValueOnce({
@@ -522,9 +519,8 @@ describe('Unit Test: /api/cron GET Handler', () => {
     const req = createMockRequest()
     const response = await GET(req)
     
-    // Verify text measurement was called for wrapping
-    expect(mockCanvasContext.measureText).toHaveBeenCalled()
-    expect(mockCanvasContext.fillText).toHaveBeenCalled()
+    // Verify Satori was called for text rendering
+    expect(mockSatori).toHaveBeenCalled()
     
     expect(response.status).toBe(200)
   })

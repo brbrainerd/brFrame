@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
 import sharp from "sharp";
-import { createCanvas } from "canvas";
+import satori from "satori";
 import { formatInTimeZone } from "date-fns-tz";
 
 // NOTE: Next.js 16 (and 15+) defaults to dynamic execution
@@ -349,7 +349,7 @@ export async function GET(request: NextRequest) {
       .jpeg({ quality: 90 })
       .toBuffer();
     
-    // Create text overlay using Canvas (renders to bitmap - works better on simple displays)
+    // Create text overlay using Satori (serverless-compatible SVG-to-PNG renderer)
     const now = new Date();
     const estTime = formatInTimeZone(now, "America/New_York", "MMMM d, yyyy h:mm a z");
     
@@ -358,101 +358,76 @@ export async function GET(request: NextRequest) {
     const attribution = "100 Years Ago Today";
     const credits = "Built by Bertrand Reyna-Brainerd";
     
-    // Calculate dynamic overlay height based on text content
-    const padding = 20;
-    const lineHeight = 35;  // Space between lines
-    const maxWidth = 1024 - (padding * 2);  // Available width for text
+    // Simple text truncation for title (no complex wrapping needed with Satori)
+    const maxTitleLength = 80;
+    const displayTitle = titleText.length > maxTitleLength 
+      ? titleText.substring(0, maxTitleLength) + '...'
+      : titleText;
     
-    // Create temporary canvas for text measurement
-    const measureCanvas = createCanvas(1024, 100);
-    const measureCtx = measureCanvas.getContext("2d");
+    // Calculate dynamic overlay height (simple fixed height based on content)
+    const overlayHeight = 160;  // Fixed height for consistency
     
-    // Measure attribution line
-    measureCtx.font = "18px Arial";
-    const attributionHeight = 25;
-    
-    // Measure title - may need to wrap to multiple lines
-    measureCtx.font = "bold 24px Arial";
-    const titleWords = titleText.split(' ');
-    const titleLines: string[] = [];
-    let currentLine = '';
-    
-    for (const word of titleWords) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      const metrics = measureCtx.measureText(testLine);
-      
-      if (metrics.width > maxWidth && currentLine) {
-        titleLines.push(currentLine);
-        currentLine = word;
-      } else {
-        currentLine = testLine;
+    // Create SVG markup using Satori
+    const svg = await satori(
+      {
+        type: 'div',
+        props: {
+          style: {
+            width: '1024px',
+            height: `${overlayHeight}px`,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: '20px',
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            color: 'white',
+            fontFamily: 'sans-serif',
+          },
+          children: [
+            {
+              type: 'div',
+              props: {
+                style: { fontSize: '18px', marginBottom: '8px' },
+                children: attribution,
+              },
+            },
+            {
+              type: 'div',
+              props: {
+                style: { fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' },
+                children: displayTitle,
+              },
+            },
+            {
+              type: 'div',
+              props: {
+                style: { fontSize: '16px', marginBottom: '6px' },
+                children: `r/${SUBREDDIT} • ${estTime}`,
+              },
+            },
+            {
+              type: 'div',
+              props: {
+                style: { fontSize: '14px', color: '#cccccc' },
+                children: credits,
+              },
+            },
+          ],
+        },
+      },
+      {
+        width: 1024,
+        height: overlayHeight,
+        fonts: [],  // Use system fonts
       }
-    }
-    if (currentLine) titleLines.push(currentLine);
+    );
     
-    // Limit to 3 lines maximum for title
-    if (titleLines.length > 3) {
-      titleLines.splice(2);  // Keep first 2 lines
-      titleLines[2] = titleLines[1].substring(0, 50) + '...';
-    }
-    
-    const titleHeight = titleLines.length * lineHeight;
-    
-    // Measure metadata line (subreddit + time)
-    measureCtx.font = "16px Arial";
-    const metadataHeight = 25;
-    
-    // Measure credits line
-    measureCtx.font = "14px Arial";
-    const creditsHeight = 22;
-    
-    // Calculate total height needed
-    const totalHeight = padding + attributionHeight + titleHeight + metadataHeight + creditsHeight + padding;
-    const overlayHeight = Math.min(totalHeight, 250);  // Cap at 250px max
-    
-    // Create actual canvas for rendering
-    const canvas = createCanvas(1024, overlayHeight);
-    const ctx = canvas.getContext("2d");
-    
-    // Draw semi-transparent black background
-    ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
-    ctx.fillRect(0, 0, 1024, overlayHeight);
-    
-    // Draw text with bitmap fonts
-    let yPosition = padding;
-    
-    // Attribution (top)
-    ctx.fillStyle = "white";
-    ctx.font = "18px Arial";
-    yPosition += 18;
-    ctx.fillText(attribution, padding, yPosition);
-    yPosition += 10;
-    
-    // Title (bold, larger) - multiple lines
-    ctx.font = "bold 24px Arial";
-    for (const line of titleLines) {
-      yPosition += 28;
-      ctx.fillText(line, padding, yPosition);
-    }
-    yPosition += 10;
-    
-    // Subreddit and time
-    ctx.font = "16px Arial";
-    yPosition += 20;
-    ctx.fillText(`r/${SUBREDDIT} • ${estTime}`, padding, yPosition);
-    yPosition += 8;
-    
-    // Credits (gray)
-    ctx.fillStyle = "#cccccc";
-    ctx.font = "14px Arial";
-    yPosition += 18;
-    ctx.fillText(credits, padding, yPosition);
-    
-    // Convert canvas to buffer
-    const textOverlayBuffer = canvas.toBuffer("image/png");
+    // Convert SVG to PNG using Sharp
+    const textOverlayBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
     
     console.log(`[Image Processing] Text overlay height: ${overlayHeight}px (${((overlayHeight/768)*100).toFixed(1)}% of image)`);
-    console.log(`[Image Processing] Title wrapped to ${titleLines.length} line(s)`);
+    console.log(`[Image Processing] Title: ${displayTitle}`);
+    console.log(`[Image Processing] Using Satori for serverless text rendering`);
     
     // Composite the text overlay onto the processed image (positioned at bottom)
     const finalImage = await sharp(processedImage)
