@@ -81,7 +81,7 @@ export function createCronHandler(deps: CronHandlerDependencies = {}) {
       });
 
       jobLogger.info("Image composition complete", {
-        overlayLength: composedImage.overlaySvg.length,
+        imageSize: composedImage.finalImage.length,
       });
 
       const emailResult = await sendEmail({
