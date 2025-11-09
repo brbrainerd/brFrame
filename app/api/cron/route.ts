@@ -95,7 +95,7 @@ export function createCronHandler(deps: CronHandlerDependencies = {}) {
         ],
       });
 
-      jobLogger.info("Email dispatched successfully", emailResult);
+      jobLogger.info("Email dispatched successfully", { ...emailResult });
 
       return NextResponse.json({
         success: true,
