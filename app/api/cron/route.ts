@@ -5,6 +5,135 @@ import sharp from "sharp";
 import { formatInTimeZone } from "date-fns-tz";
 import fs from "fs";
 import path from "path";
+import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
+
+type LogLevel = "info" | "warn" | "error" | "debug";
+
+type CapturedLog = {
+  timestamp: string;
+  level: LogLevel;
+  fragments: string[];
+  message: string;
+};
+
+function createLogCapture(scope: string) {
+  const logs: CapturedLog[] = [];
+
+  const formatFragment = (arg: unknown): string => {
+    if (typeof arg === "string") {
+      return arg;
+    }
+    if (typeof arg === "number" || typeof arg === "boolean" || arg === undefined || arg === null) {
+      return String(arg);
+    }
+    if (arg instanceof Error) {
+      return arg.name + ": " + arg.message;
+    }
+    try {
+      return JSON.stringify(arg, (_key, value) => (typeof value === "bigint" ? value.toString() : value));
+    } catch (error) {
+      return "[unserializable]";
+    }
+  };
+
+  const capture = (level: LogLevel, args: unknown[]) => {
+    const fragments = args.map(formatFragment);
+    const combined = fragments.join(" " );
+    const message = combined.length > 1200 ? combined.slice(0, 1200) + " ...[truncated]" : combined;
+    logs.push({
+      timestamp: new Date().toISOString(),
+      level,
+      fragments,
+      message,
+    });
+  };
+
+  const originalLog = console.log;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const originalDebug = console.debug;
+
+  console.log = (...args: unknown[]) => {
+    capture("info", args);
+    originalLog.apply(console, args as any[]);
+  };
+  console.warn = (...args: unknown[]) => {
+    capture("warn", args);
+    originalWarn.apply(console, args as any[]);
+  };
+  console.error = (...args: unknown[]) => {
+    capture("error", args);
+    originalError.apply(console, args as any[]);
+  };
+  console.debug = (...args: unknown[]) => {
+    capture("debug", args);
+    (originalDebug ?? originalLog).apply(console, args as any[]);
+  };
+
+  return {
+    logs,
+    restore() {
+      console.log = originalLog;
+      console.warn = originalWarn;
+      console.error = originalError;
+      console.debug = originalDebug;
+    },
+  };
+}
+
+type CronLogLevel = "info" | "warn" | "error" | "debug";
+
+type CronLogEntry = {
+  timestamp: string;
+  level: CronLogLevel;
+  message: string;
+  metadata?: Record<string, unknown>;
+};
+
+type CronLogger = {
+  info: (message: string, metadata?: Record<string, unknown>) => void;
+  warn: (message: string, metadata?: Record<string, unknown>) => void;
+  error: (message: string, metadata?: Record<string, unknown>) => void;
+  debug: (message: string, metadata?: Record<string, unknown>) => void;
+  flush: () => CronLogEntry[];
+};
+
+function createCronLogger(scope: string): CronLogger {
+  const entries: CronLogEntry[] = [];
+
+  const pushEntry = (
+    level: CronLogLevel,
+    message: string,
+    metadata?: Record<string, unknown>
+  ) => {
+    const timestamp = new Date().toISOString();
+    const entry: CronLogEntry = { timestamp, level, message, metadata };
+    entries.push(entry);
+
+    const consoleMethod =
+      level === "error"
+        ? console.error
+        : level === "warn"
+        ? console.warn
+        : level === "debug"
+        ? console.debug
+        : console.log;
+
+    if (metadata) {
+      consoleMethod(`[${scope}] [${level.toUpperCase()}] ${message}`, metadata);
+    } else {
+      consoleMethod(`[${scope}] [${level.toUpperCase()}] ${message}`);
+    }
+  };
+
+  return {
+    info: (message, metadata) => pushEntry("info", message, metadata),
+    warn: (message, metadata) => pushEntry("warn", message, metadata),
+    error: (message, metadata) => pushEntry("error", message, metadata),
+    debug: (message, metadata) => pushEntry("debug", message, metadata),
+    flush: () => entries,
+  };
+}
 
 // NOTE: Next.js 16 (and 15+) defaults to dynamic execution
 // for GET handlers in Route Handlers. We no longer need to export
@@ -316,12 +445,13 @@ export async function GET(request: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  console.log("Cron job started: Fetching daily image...");
+  const { logs: capturedLogs, restore } = createLogCapture("daily-cron");
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const SUBREDDIT = "100yearsago";
 
   try {
+    console.log("Cron job started: Fetching daily image...");
     // 2. --- FETCH DATA FROM REDDIT ---
     const chosenPost = await getBestHistoricalImageForToday();
 
@@ -350,7 +480,7 @@ export async function GET(request: NextRequest) {
       .jpeg({ quality: 90 })
       .toBuffer();
     
-    // Create text overlay using Satori (serverless-compatible SVG-to-PNG renderer)
+    // Create text overlay using Canvas (works reliably in serverless)
     const now = new Date();
     const estTime = formatInTimeZone(now, "America/New_York", "MMMM d, yyyy h:mm a z");
     
@@ -359,47 +489,47 @@ export async function GET(request: NextRequest) {
     const attribution = "100 Years Ago Today";
     const credits = "Built by Bertrand Reyna-Brainerd";
     
-    // Simple text truncation for title (no complex wrapping needed with Satori)
+    // Simple text truncation for title
     const maxTitleLength = 80;
     const displayTitle = titleText.length > maxTitleLength 
       ? titleText.substring(0, maxTitleLength) + '...'
       : titleText;
     
-    // Calculate dynamic overlay height (simple fixed height based on content)
-    const overlayHeight = 160;  // Fixed height for consistency
+    const overlayHeight = 160;
     
-    // Load and embed font data in SVG for reliable rendering
+    // Register font for canvas rendering
     const fontPath = path.join(process.cwd(), 'public', 'fonts', 'Roboto-Regular.ttf');
-    const fontBuffer = fs.readFileSync(fontPath);
-    const fontBase64 = fontBuffer.toString('base64');
+    GlobalFonts.registerFromPath(fontPath, 'Roboto');
     
-    // Create SVG with embedded font
-    const svgOverlay = `
-      <svg width="1024" height="${overlayHeight}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <style type="text/css">
-            @font-face {
-              font-family: 'Roboto';
-              src: url(data:font/truetype;charset=utf-8;base64,${fontBase64}) format('truetype');
-              font-weight: normal;
-              font-style: normal;
-            }
-          </style>
-        </defs>
-        <rect width="1024" height="${overlayHeight}" fill="rgba(0,0,0,0.85)"/>
-        <text x="20" y="35" font-family="Roboto" font-size="18" fill="white">${attribution.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
-        <text x="20" y="70" font-family="Roboto" font-size="24" font-weight="bold" fill="white">${displayTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
-        <text x="20" y="110" font-family="Roboto" font-size="16" fill="white">r/${SUBREDDIT} • ${estTime}</text>
-        <text x="20" y="140" font-family="Roboto" font-size="14" fill="#cccccc">${credits.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
-      </svg>
-    `;
+    // Create canvas overlay
+    const canvas = createCanvas(1024, overlayHeight);
+    const ctx = canvas.getContext('2d');
     
-    // Convert SVG to PNG using Sharp
-    const textOverlayBuffer = await sharp(Buffer.from(svgOverlay)).png().toBuffer();
+    // Draw semi-transparent black background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillRect(0, 0, 1024, overlayHeight);
+    
+    // Draw text lines
+    ctx.fillStyle = 'white';
+    ctx.font = '18px Roboto';
+    ctx.fillText(attribution, 20, 35);
+    
+    ctx.font = 'bold 24px Roboto';
+    ctx.fillText(displayTitle, 20, 70);
+    
+    ctx.font = '16px Roboto';
+    ctx.fillText(`r/${SUBREDDIT} • ${estTime}`, 20, 110);
+    
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '14px Roboto';
+    ctx.fillText(credits, 20, 140);
+    
+    // Convert canvas to buffer
+    const textOverlayBuffer = canvas.toBuffer('image/png');
     
     console.log(`[Image Processing] Text overlay height: ${overlayHeight}px (${((overlayHeight/768)*100).toFixed(1)}% of image)`);
     console.log(`[Image Processing] Title: ${displayTitle}`);
-    console.log(`[Image Processing] Using simple SVG text rendering`);
+    console.log(`[Image Processing] Using Canvas text rendering for serverless compatibility`);
     
     // Composite the text overlay onto the processed image (positioned at bottom)
     const finalImage = await sharp(processedImage)
@@ -443,7 +573,12 @@ export async function GET(request: NextRequest) {
       });
 
       console.log(`Email sent successfully via Gmail! ID: ${info.messageId}`);
-      return NextResponse.json({ success: true, message: `Email sent: ${info.messageId}` });
+      return NextResponse.json({
+        success: true,
+        message: `Email sent: ${info.messageId}`,
+        chosenPost,
+        logs: capturedLogs,
+      });
     } else {
       // Default: Resend (free tier restrictions apply)
       console.log('[Email] Using Resend');
@@ -474,3 +609,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+
+

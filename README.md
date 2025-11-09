@@ -1,12 +1,12 @@
 # brFrame - Historical Photo Digital Frame
 
-A Next.js 16 serverless application that delivers daily historical photos from Reddit's r/100yearsagotoday to your Pix-Star digital frame via email.
+A Next.js 16 serverless application that delivers daily historical photos from Reddit's r/100yearsago to a Pix-Star digital frame.
 
 ## Features
 
-- **Daily Updates**: Automated cron job runs at 2:00 PM EST every day
+- **Daily Updates**: Automated cron job runs at 8:00 AM EST every day
 - **Reddit Integration**: Fetches top-rated historical images from r/100yearsagotoday
-- **Image Processing**: Resizes and adds text overlays using Jimp
+- **Image Processing**: Resizes and adds text overlays using Sharp + Satori
 - **Email Delivery**: Sends processed images via Resend to your Pix-Star frame email
 - **Serverless**: Runs entirely on Vercel's infrastructure with zero maintenance
 
@@ -18,7 +18,8 @@ A Next.js 16 serverless application that delivers daily historical photos from R
 - **Tailwind CSS**
 - **Vercel Cron Jobs**
 - **Resend** for email delivery
-- **Jimp** for image processing
+- **Sharp** for image compositing
+- **Satori** for text rendering
 
 ## Getting Started
 
@@ -63,7 +64,7 @@ npm run test:ui
 **What's tested:**
 - ✅ Authorization (valid/invalid CRON_SECRET)
 - ✅ Reddit API integration (success, failure, no images)
-- ✅ Image processing with Jimp (success, corrupt image)
+- ✅ Image processing with Sharp + Satori (success, corrupt overlay)
 - ✅ Email delivery via Resend (success, API errors)
 - ✅ All error paths and edge cases
 
