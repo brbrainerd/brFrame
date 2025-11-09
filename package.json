@@ -13,10 +13,11 @@
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
     "test:e2e": "vitest run --config vitest.config.e2e.ts",
-    "test:manual": "tsx tests/helpers/manual-trigger.ts"
+    "test:manual": "tsx tests/helpers/manual-trigger.ts",
+    "cron:trigger": "tsx tests/helpers/manual-trigger.ts"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.81",
+    "canvas": "^3.2.0",
     "date-fns-tz": "^3.1.3",
     "next": "^16.0.1",
     "nodemailer": "^7.0.10",

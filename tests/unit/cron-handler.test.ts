@@ -8,6 +8,8 @@ import {
   mockSharpBuffer,
   mockSendMail,
   mockCreateTransport,
+  mockSatori,
+  defaultFetchImplementation,
 } from '../setup'
 import { NextRequest } from 'next/server'
 import 'dotenv/config'
@@ -20,6 +22,20 @@ const createMockRequest = () => {
     },
   })
 }
+
+const createMockFontResponse = () =>
+  ({
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(2048)),
+  } as Response)
+
+const createMockImageResponse = () =>
+  ({
+    ok: true,
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(100)),
+  } as Response)
 
 describe('Unit Test: /api/cron GET Handler', () => {
   it('should fail with 401 if CRON_SECRET is missing', async () => {

@@ -12,7 +12,7 @@ async function triggerCron() {
     ? `https://${vercelUrl}/api/cron`
     : 'http://localhost:3000/api/cron'
 
-  console.log(`\n🔄 Manually triggering cron job at: ${url}\n`)
+  console.log(`\n[Trigger] Manually triggering cron job at: ${url}\n`)
 
   try {
     const response = await fetch(url, {
@@ -29,20 +29,67 @@ async function triggerCron() {
       )
     }
 
-    console.log('📋 --- Trigger Response ---')
-    console.log(JSON.stringify(json, null, 2))
+    const logs = Array.isArray(json.logs) ? json.logs : []
+
+    console.log('[Response] Summary')
+    console.log(
+      JSON.stringify(
+        {
+          success: json.success,
+          message: json.message ?? json.error,
+          error: json.error,
+        },
+        null,
+        2
+      )
+    )
     console.log('---------------------------\n')
 
+    if (json.chosenPost) {
+      const { title, imageUrl, score, permalink } = json.chosenPost
+      console.log('[Chosen Post]')
+      console.log(`Title     : ${title}`)
+      console.log(`Score     : ${score}`)
+      console.log(`Image URL : ${imageUrl}`)
+      console.log(`Permalink : ${permalink}`)
+      console.log('---------------------------\n')
+    }
+
+    if (logs.length > 0) {
+      const levelIcons: Record<string, string> = {
+        info: 'INFO ',
+        warn: 'WARN ',
+        error: 'ERR  ',
+        debug: 'DBG  ',
+      }
+
+      console.log('[Logs] Captured output')
+      for (const entry of logs) {
+        const timestamp = entry.timestamp
+          ? new Date(entry.timestamp).toISOString()
+          : new Date().toISOString()
+        const level = (entry.level ?? 'info').toLowerCase()
+        const icon = levelIcons[level] ?? levelIcons.info
+        const message =
+          entry.message ??
+          (Array.isArray(entry.fragments) ? entry.fragments.join(' ') : '')
+
+        console.log(`${icon}[${timestamp}] [${level.toUpperCase()}] ${message}`)
+      }
+      console.log('---------------------------\n')
+    }
+
     if (json.success) {
-      console.log('✅ Success! Check your frame/email.')
-      console.log(`📧 Email sent to: ${process.env.FRAME_EMAIL}`)
-      console.log('🔗 Resend Dashboard: https://resend.com/emails')
-      console.log('📱 Check your Pix-Star frame for the new image!\n')
+      console.log('OK   Success! Check your frame/email.')
+      console.log(`Email sent to: ${process.env.FRAME_EMAIL}`)
+      console.log('Link : https://resend.com/emails')
+      console.log('Frame: Check your Pix-Star frame for the new image!\n')
     } else {
-      console.warn(`⚠️  Job finished with non-success: ${json.message}\n`)
+      const message = json.error ?? json.message ?? 'Unknown error'
+      console.warn(`WARN  Job finished with non-success: ${message}\n`)
     }
   } catch (error) {
-    console.error('❌ Trigger failed:', error)
+    console.error('ERR   Trigger failed:', error)
     process.exit(1)
   }
 }

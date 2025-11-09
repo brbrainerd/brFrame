@@ -3,9 +3,8 @@ import { Resend } from "resend";
 import nodemailer from "nodemailer";
 import sharp from "sharp";
 import { formatInTimeZone } from "date-fns-tz";
-import fs from "fs";
+import { createCanvas, registerFont } from "canvas";
 import path from "path";
-import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
 
 type LogLevel = "info" | "warn" | "error" | "debug";
 
@@ -38,7 +37,7 @@ function createLogCapture(scope: string) {
 
   const capture = (level: LogLevel, args: unknown[]) => {
     const fragments = args.map(formatFragment);
-    const combined = fragments.join(" " );
+    const combined = fragments.join(" ");
     const message = combined.length > 1200 ? combined.slice(0, 1200) + " ...[truncated]" : combined;
     logs.push({
       timestamp: new Date().toISOString(),
@@ -446,6 +445,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { logs: capturedLogs, restore } = createLogCapture("daily-cron");
+  let chosenPost: Awaited<ReturnType<typeof getBestHistoricalImageForToday>> | null = null;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const SUBREDDIT = "100yearsago";
@@ -453,15 +453,16 @@ export async function GET(request: NextRequest) {
   try {
     console.log("Cron job started: Fetching daily image...");
     // 2. --- FETCH DATA FROM REDDIT ---
-    const chosenPost = await getBestHistoricalImageForToday();
+    chosenPost = await getBestHistoricalImageForToday();
+    const post = chosenPost;
 
-    console.log(`Image found: ${chosenPost.title}`);
+    console.log(`Image found: ${post.title}`);
 
     // 3. --- PROCESS THE IMAGE WITH SHARP ---
-    console.log(`Downloading image from: ${chosenPost.imageUrl}`);
+    console.log(`Downloading image from: ${post.imageUrl}`);
     
     // Download image
-    const imageResponse = await fetch(chosenPost.imageUrl);
+    const imageResponse = await fetch(post.imageUrl);
     const imageArrayBuffer = await imageResponse.arrayBuffer();
     const imageBuffer = Buffer.from(imageArrayBuffer);
 
@@ -480,56 +481,67 @@ export async function GET(request: NextRequest) {
       .jpeg({ quality: 90 })
       .toBuffer();
     
-    // Create text overlay using Canvas (works reliably in serverless)
+    // Create text overlay using node-canvas (cross-platform bitmap rendering)
     const now = new Date();
     const estTime = formatInTimeZone(now, "America/New_York", "MMMM d, yyyy h:mm a z");
-    
+
     // Build text lines
-    const titleText = chosenPost.title;  // Full Reddit post title with date
+    const titleText = post.title; // Full Reddit post title with date
     const attribution = "100 Years Ago Today";
     const credits = "Built by Bertrand Reyna-Brainerd";
-    
+
     // Simple text truncation for title
     const maxTitleLength = 80;
-    const displayTitle = titleText.length > maxTitleLength 
-      ? titleText.substring(0, maxTitleLength) + '...'
-      : titleText;
-    
+    const displayTitle =
+      titleText.length > maxTitleLength
+        ? titleText.substring(0, maxTitleLength) + "..."
+        : titleText;
+
     const overlayHeight = 160;
-    
-    // Register font for canvas rendering
-    const fontPath = path.join(process.cwd(), 'public', 'fonts', 'Roboto-Regular.ttf');
-    GlobalFonts.registerFromPath(fontPath, 'Roboto');
-    
-    // Create canvas overlay
+
+    // Use system fonts for maximum compatibility (no font registration needed)
+    // Arial is available on Windows and Linux by default
+
+    console.log(`[Image Processing] Fonts registered from: ${fontDir}`);
+
+    // Create canvas for text overlay
     const canvas = createCanvas(1024, overlayHeight);
     const ctx = canvas.getContext('2d');
-    
+
     // Draw semi-transparent black background
     ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
     ctx.fillRect(0, 0, 1024, overlayHeight);
+
+    // Draw text lines with Inter font
+    ctx.fillStyle = '#FFFFFF';
     
-    // Draw text lines
-    ctx.fillStyle = 'white';
-    ctx.font = '18px Roboto';
+    // Attribution line
+    ctx.font = '18px Arial';
     ctx.fillText(attribution, 20, 35);
-    
-    ctx.font = 'bold 24px Roboto';
+
+    // Title line (bold)
+    ctx.font = 'bold 24px Arial';
     ctx.fillText(displayTitle, 20, 70);
-    
-    ctx.font = '16px Roboto';
+
+    // Metadata line
+    ctx.font = '16px Arial';
     ctx.fillText(`r/${SUBREDDIT} • ${estTime}`, 20, 110);
-    
-    ctx.fillStyle = '#cccccc';
-    ctx.font = '14px Roboto';
+
+    // Credits line
+    ctx.fillStyle = '#CCCCCC';
+    ctx.font = '14px Arial';
     ctx.fillText(credits, 20, 140);
-    
-    // Convert canvas to buffer
+
+    // Convert canvas to PNG buffer
     const textOverlayBuffer = canvas.toBuffer('image/png');
-    
-    console.log(`[Image Processing] Text overlay height: ${overlayHeight}px (${((overlayHeight/768)*100).toFixed(1)}% of image)`);
+
+    console.log(
+      `[Image Processing] Text overlay height: ${overlayHeight}px (${(
+        (overlayHeight / 768) * 100
+      ).toFixed(1)}% of image)`
+    );
     console.log(`[Image Processing] Title: ${displayTitle}`);
-    console.log(`[Image Processing] Using Canvas text rendering for serverless compatibility`);
+    console.log(`[Image Processing] Using node-canvas for cross-platform text rendering`);
     
     // Composite the text overlay onto the processed image (positioned at bottom)
     const finalImage = await sharp(processedImage)
@@ -562,8 +574,8 @@ export async function GET(request: NextRequest) {
       const info = await transporter.sendMail({
         from: `"100 Years Ago Today" <${process.env.GMAIL_USER?.trim() || 'brbrainerd@gmail.com'}>`,
         to: process.env.FRAME_EMAIL?.trim()!,
-        subject: `100 Years Ago Today: ${chosenPost.title}`,
-        html: `<strong>100 Years Ago Today</strong><br><br>${chosenPost.title}<br><br><em>Built by Bertrand Reyna-Brainerd</em>`,
+        subject: `100 Years Ago Today: ${post.title}`,
+        html: `<strong>100 Years Ago Today</strong><br><br>${post.title}<br><br><em>Built by Bertrand Reyna-Brainerd</em>`,
         attachments: [
           {
             filename: "daily-photo.jpg",
@@ -586,8 +598,8 @@ export async function GET(request: NextRequest) {
       const { data: emailData, error: emailError } = await resend.emails.send({
         from: `100 Years Ago Today <${process.env.RESEND_FROM_EMAIL?.trim()}>`,
         to: [process.env.FRAME_EMAIL?.trim()!],
-        subject: `100 Years Ago Today: ${chosenPost.title}`,
-        html: `<strong>100 Years Ago Today</strong><br><br>${chosenPost.title}<br><br><em>Built by Bertrand Reyna-Brainerd</em>`,
+        subject: `100 Years Ago Today: ${post.title}`,
+        html: `<strong>100 Years Ago Today</strong><br><br>${post.title}<br><br><em>Built by Bertrand Reyna-Brainerd</em>`,
         attachments: [
           {
             filename: "daily-photo.jpg",
@@ -601,14 +613,25 @@ export async function GET(request: NextRequest) {
       }
 
       console.log(`Email sent successfully! ID: ${emailData?.id}`);
-      return NextResponse.json({ success: true, message: `Email sent: ${emailData?.id}` });
+      return NextResponse.json({
+        success: true,
+        message: `Email sent: ${emailData?.id}`,
+        chosenPost,
+        logs: capturedLogs,
+      });
     }
 
   } catch (error: any) {
     console.error("Cron job failed:", error.message);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: error.message, logs: capturedLogs, chosenPost: chosenPost ?? undefined },
+      { status: 500 }
+    );
+  } finally {
+    restore();
   }
 }
+
 
 
 
