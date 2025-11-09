@@ -56,3 +56,4 @@ describe("E2E Test: Full Cron Workflow", () => {
     console.log("🔗 Resend Dashboard: https://resend.com/emails\n");
   });
 });
+
