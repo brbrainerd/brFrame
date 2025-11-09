@@ -3,6 +3,8 @@ import { Resend } from "resend";
 import nodemailer from "nodemailer";
 import sharp from "sharp";
 import { formatInTimeZone } from "date-fns-tz";
+import fs from "fs";
+import path from "path";
 
 // NOTE: Next.js 16 (and 15+) defaults to dynamic execution
 // for GET handlers in Route Handlers. We no longer need to export
@@ -366,14 +368,29 @@ export async function GET(request: NextRequest) {
     // Calculate dynamic overlay height (simple fixed height based on content)
     const overlayHeight = 160;  // Fixed height for consistency
     
-    // Create simple SVG text overlay (no external fonts needed)
+    // Load and embed font data in SVG for reliable rendering
+    const fontPath = path.join(process.cwd(), 'public', 'fonts', 'Roboto-Regular.ttf');
+    const fontBuffer = fs.readFileSync(fontPath);
+    const fontBase64 = fontBuffer.toString('base64');
+    
+    // Create SVG with embedded font
     const svgOverlay = `
-      <svg width="1024" height="${overlayHeight}">
+      <svg width="1024" height="${overlayHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <style type="text/css">
+            @font-face {
+              font-family: 'Roboto';
+              src: url(data:font/truetype;charset=utf-8;base64,${fontBase64}) format('truetype');
+              font-weight: normal;
+              font-style: normal;
+            }
+          </style>
+        </defs>
         <rect width="1024" height="${overlayHeight}" fill="rgba(0,0,0,0.85)"/>
-        <text x="20" y="35" font-family="Arial, sans-serif" font-size="18" fill="white">${attribution.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
-        <text x="20" y="70" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">${displayTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
-        <text x="20" y="110" font-family="Arial, sans-serif" font-size="16" fill="white">r/${SUBREDDIT} • ${estTime}</text>
-        <text x="20" y="140" font-family="Arial, sans-serif" font-size="14" fill="#cccccc">${credits.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
+        <text x="20" y="35" font-family="Roboto" font-size="18" fill="white">${attribution.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
+        <text x="20" y="70" font-family="Roboto" font-size="24" font-weight="bold" fill="white">${displayTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
+        <text x="20" y="110" font-family="Roboto" font-size="16" fill="white">r/${SUBREDDIT} • ${estTime}</text>
+        <text x="20" y="140" font-family="Roboto" font-size="14" fill="#cccccc">${credits.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
       </svg>
     `;
     
