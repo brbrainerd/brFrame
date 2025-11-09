@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import sharp from "sharp";
 import satori from "satori";
 import { formatInTimeZone } from "date-fns-tz";
+import React from "react";
 
 // NOTE: Next.js 16 (and 15+) defaults to dynamic execution
 // for GET handlers in Route Handlers. We no longer need to export
@@ -367,11 +368,11 @@ export async function GET(request: NextRequest) {
     // Calculate dynamic overlay height (simple fixed height based on content)
     const overlayHeight = 160;  // Fixed height for consistency
     
-    // Create SVG markup using Satori
+    // Create SVG markup using Satori with React elements
     const svg = await satori(
-      {
-        type: 'div',
-        props: {
+      React.createElement(
+        'div',
+        {
           style: {
             width: '1024px',
             height: `${overlayHeight}px`,
@@ -383,38 +384,12 @@ export async function GET(request: NextRequest) {
             color: 'white',
             fontFamily: 'sans-serif',
           },
-          children: [
-            {
-              type: 'div',
-              props: {
-                style: { fontSize: '18px', marginBottom: '8px' },
-                children: attribution,
-              },
-            },
-            {
-              type: 'div',
-              props: {
-                style: { fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' },
-                children: displayTitle,
-              },
-            },
-            {
-              type: 'div',
-              props: {
-                style: { fontSize: '16px', marginBottom: '6px' },
-                children: `r/${SUBREDDIT} • ${estTime}`,
-              },
-            },
-            {
-              type: 'div',
-              props: {
-                style: { fontSize: '14px', color: '#cccccc' },
-                children: credits,
-              },
-            },
-          ],
         },
-      },
+        React.createElement('div', { style: { fontSize: '18px', marginBottom: '8px' } }, attribution),
+        React.createElement('div', { style: { fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' } }, displayTitle),
+        React.createElement('div', { style: { fontSize: '16px', marginBottom: '6px' } }, `r/${SUBREDDIT} • ${estTime}`),
+        React.createElement('div', { style: { fontSize: '14px', color: '#cccccc' } }, credits)
+      ),
       {
         width: 1024,
         height: overlayHeight,
