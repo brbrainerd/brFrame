@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
 import sharp from "sharp";
-import satori from "satori";
 import { formatInTimeZone } from "date-fns-tz";
-import React from "react";
 
 // NOTE: Next.js 16 (and 15+) defaults to dynamic execution
 // for GET handlers in Route Handlers. We no longer need to export
@@ -368,56 +366,23 @@ export async function GET(request: NextRequest) {
     // Calculate dynamic overlay height (simple fixed height based on content)
     const overlayHeight = 160;  // Fixed height for consistency
     
-    // Fetch Roboto font from cdnjs for Satori (reliable CDN source)
-    console.log('[Image Processing] Fetching font for text rendering...');
-    const fontResponse = await fetch('https://cdnjs.cloudflare.com/ajax/libs/open-sans/2.0.0/fonts/open-sans-regular.ttf');
-    if (!fontResponse.ok) {
-      throw new Error(`Font fetch failed: ${fontResponse.status}`);
-    }
-    const fontData = await fontResponse.arrayBuffer();
-    
-    // Create SVG markup using Satori with React elements
-    const svg = await satori(
-      React.createElement(
-        'div',
-        {
-          style: {
-            width: '1024px',
-            height: `${overlayHeight}px`,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            padding: '20px',
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            color: 'white',
-            fontFamily: 'Open Sans',
-          },
-        },
-        React.createElement('div', { style: { fontSize: '18px', marginBottom: '8px' } }, attribution),
-        React.createElement('div', { style: { fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' } }, displayTitle),
-        React.createElement('div', { style: { fontSize: '16px', marginBottom: '6px' } }, `r/${SUBREDDIT} • ${estTime}`),
-        React.createElement('div', { style: { fontSize: '14px', color: '#cccccc' } }, credits)
-      ),
-      {
-        width: 1024,
-        height: overlayHeight,
-        fonts: [
-          {
-            name: 'Open Sans',
-            data: fontData,
-            weight: 400,
-            style: 'normal',
-          },
-        ],
-      }
-    );
+    // Create simple SVG text overlay (no external fonts needed)
+    const svgOverlay = `
+      <svg width="1024" height="${overlayHeight}">
+        <rect width="1024" height="${overlayHeight}" fill="rgba(0,0,0,0.85)"/>
+        <text x="20" y="35" font-family="Arial, sans-serif" font-size="18" fill="white">${attribution.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
+        <text x="20" y="70" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">${displayTitle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
+        <text x="20" y="110" font-family="Arial, sans-serif" font-size="16" fill="white">r/${SUBREDDIT} • ${estTime}</text>
+        <text x="20" y="140" font-family="Arial, sans-serif" font-size="14" fill="#cccccc">${credits.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
+      </svg>
+    `;
     
     // Convert SVG to PNG using Sharp
-    const textOverlayBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+    const textOverlayBuffer = await sharp(Buffer.from(svgOverlay)).png().toBuffer();
     
     console.log(`[Image Processing] Text overlay height: ${overlayHeight}px (${((overlayHeight/768)*100).toFixed(1)}% of image)`);
     console.log(`[Image Processing] Title: ${displayTitle}`);
-    console.log(`[Image Processing] Using Satori for serverless text rendering`);
+    console.log(`[Image Processing] Using simple SVG text rendering`);
     
     // Composite the text overlay onto the processed image (positioned at bottom)
     const finalImage = await sharp(processedImage)

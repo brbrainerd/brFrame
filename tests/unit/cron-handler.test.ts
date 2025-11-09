@@ -8,7 +8,6 @@ import {
   mockSharpBuffer,
   mockSendMail,
   mockCreateTransport,
-  mockSatori,
 } from '../setup'
 import { NextRequest } from 'next/server'
 import 'dotenv/config'
@@ -372,7 +371,7 @@ describe('Unit Test: /api/cron GET Handler', () => {
     expect(json.message).toContain('mock-message-id@gmail.com')
   })
 
-  it('should create dynamic overlay using Satori for serverless rendering', async () => {
+  it('should create overlay using SVG text rendering', async () => {
     process.env.REDDIT_CLIENT_ID = 'test_client_id'
     process.env.REDDIT_CLIENT_SECRET = 'test_client_secret'
     delete process.env.GMAIL_APP_PASSWORD
@@ -380,11 +379,10 @@ describe('Unit Test: /api/cron GET Handler', () => {
     const req = createMockRequest()
     const response = await GET(req)
     
-    // Verify Satori was called for text overlay
-    expect(mockSatori).toHaveBeenCalled()
-    const satoriCall = mockSatori.mock.calls[0]
-    expect(satoriCall[0]).toHaveProperty('type', 'div')
-    expect(satoriCall[1]).toHaveProperty('width', 1024)
+    // Verify Sharp was called with PNG conversion for SVG overlay
+    expect(mockSharp).toHaveBeenCalled()
+    expect(mockSharpInstance.png).toHaveBeenCalled()
+    expect(mockSharpInstance.composite).toHaveBeenCalled()
     
     expect(response.status).toBe(200)
   })
@@ -519,8 +517,8 @@ describe('Unit Test: /api/cron GET Handler', () => {
     const req = createMockRequest()
     const response = await GET(req)
     
-    // Verify Satori was called for text rendering
-    expect(mockSatori).toHaveBeenCalled()
+    // Verify Sharp PNG conversion was called for SVG rendering
+    expect(mockSharpInstance.png).toHaveBeenCalled()
     
     expect(response.status).toBe(200)
   })

@@ -34,12 +34,7 @@ vi.mock('sharp', () => ({
   default: mockSharp,
 }))
 
-// 3. Mock the Satori module
-export const mockSatori = vi.fn(() => Promise.resolve('<svg>mock svg</svg>'))
-
-vi.mock('satori', () => ({
-  default: mockSatori,
-}))
+// 3. No additional mocks needed for SVG text rendering (uses Sharp)
 
 // 4. Mock the Nodemailer module
 export const mockSendMail = vi.fn()
@@ -73,8 +68,7 @@ beforeEach(() => {
   mockSharpInstance.toBuffer.mockResolvedValue(mockSharpBuffer)
   mockSharp.mockReturnValue(mockSharpInstance)
   
-  // Reset Satori mocks
-  mockSatori.mockResolvedValue('<svg>mock svg</svg>')
+  // No additional resets needed for SVG rendering
 
   // Reset Nodemailer mocks
   mockSendMail.mockResolvedValue({ messageId: '<mock-message-id@gmail.com>' })
