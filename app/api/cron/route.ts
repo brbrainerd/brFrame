@@ -368,9 +368,12 @@ export async function GET(request: NextRequest) {
     // Calculate dynamic overlay height (simple fixed height based on content)
     const overlayHeight = 160;  // Fixed height for consistency
     
-    // Fetch Inter font from GitHub for Satori (reliable source)
+    // Fetch Roboto font from cdnjs for Satori (reliable CDN source)
     console.log('[Image Processing] Fetching font for text rendering...');
-    const fontResponse = await fetch('https://github.com/rsms/inter/raw/master/docs/font-files/Inter-Regular.ttf');
+    const fontResponse = await fetch('https://cdnjs.cloudflare.com/ajax/libs/open-sans/2.0.0/fonts/open-sans-regular.ttf');
+    if (!fontResponse.ok) {
+      throw new Error(`Font fetch failed: ${fontResponse.status}`);
+    }
     const fontData = await fontResponse.arrayBuffer();
     
     // Create SVG markup using Satori with React elements
@@ -387,7 +390,7 @@ export async function GET(request: NextRequest) {
             padding: '20px',
             backgroundColor: 'rgba(0, 0, 0, 0.9)',
             color: 'white',
-            fontFamily: 'Inter',
+            fontFamily: 'Open Sans',
           },
         },
         React.createElement('div', { style: { fontSize: '18px', marginBottom: '8px' } }, attribution),
@@ -400,7 +403,7 @@ export async function GET(request: NextRequest) {
         height: overlayHeight,
         fonts: [
           {
-            name: 'Inter',
+            name: 'Open Sans',
             data: fontData,
             weight: 400,
             style: 'normal',
