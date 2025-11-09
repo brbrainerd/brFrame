@@ -543,18 +543,33 @@ export async function GET(request: NextRequest) {
 
     // Get image metadata to determine best fit
     const metadata = await sharp(imageBuffer).metadata();
+    console.log(
+      `[Image Processing] Original dimensions: ${metadata.width}x${metadata.height}`,
+    );
     const imageAspect = (metadata.width || 1) / (metadata.height || 1);
     const targetAspect = 1024 / 768; // 4:3 ratio
+    console.log(
+      `[Image Processing] Aspect ratios - Image: ${imageAspect.toFixed(2)}, Target: ${targetAspect.toFixed(2)}`,
+    );
 
-    // Use 'contain' instead of 'cover' to avoid cropping, add background
+    // Use 'contain' to fit entire image without cropping, add black bars as needed
     const processedImage = await sharp(imageBuffer)
       .resize(1024, 768, {
-        fit: "contain", // Don't crop - fit entire image
-        background: { r: 0, g: 0, b: 0 }, // Black letterbox bars if needed
+        fit: "contain", // Fit entire image within bounds
+        background: { r: 0, g: 0, b: 0 }, // Black background for letterboxing
+        position: "center", // Center the image
       })
-      .flatten({ background: { r: 0, g: 0, b: 0 } }) // Ensure solid background
       .jpeg({ quality: 90 })
       .toBuffer();
+
+    // Verify output dimensions
+    const outputMetadata = await sharp(processedImage).metadata();
+    console.log(
+      `[Image Processing] Output dimensions: ${outputMetadata.width}x${outputMetadata.height}`,
+    );
+    console.log(
+      `[Image Processing] Expected: 1024x768 with black bars if needed`,
+    );
 
     // Use the processed image directly (no text overlay for now to isolate cropping issue)
     const finalImage = processedImage;
