@@ -1,76 +1,136 @@
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
-import { cronConfig } from "../config/cron";
-import { logger } from "../logger";
 
-export interface EmailPayload {
+import type { CronConfig } from "../config/cron";
+import { cronConfig } from "../config/cron";
+import { createLogger, type Logger } from "../logger";
+
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
+export interface EmailRequest {
   subject: string;
   html: string;
-  attachments: Array<{
-    filename: string;
-    content: Buffer;
-  }>;
+  text?: string;
+  to?: string;
+  fromName?: string;
+  attachments?: EmailAttachment[];
 }
 
-export interface EmailResult {
+export interface EmailDispatchResult {
   provider: "resend" | "gmail";
-  id: string;
+  id: string | null;
 }
 
-export async function sendEmail(payload: EmailPayload): Promise<EmailResult> {
-  const { subject, html, attachments } = payload;
+export interface EmailDispatcherDependencies {
+  config?: CronConfig["email"];
+  resendFactory?: (apiKey: string) => Resend;
+  transporterFactory?: (options: {
+    user: string;
+    pass: string;
+  }) => nodemailer.Transporter;
+  logger?: Logger;
+}
 
-  // Use Gmail if configured, otherwise Resend
-  if (cronConfig.email.gmail) {
-    logger.debug("Sending email via Gmail SMTP");
+const DEFAULT_FROM_NAME = "100 Years Ago Today";
 
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: cronConfig.email.gmail.user,
-        pass: cronConfig.email.gmail.appPassword,
-      },
+export function createEmailDispatcher(deps: EmailDispatcherDependencies = {}) {
+  const config = deps.config ?? cronConfig.email;
+  const serviceLogger =
+    deps.logger ?? createLogger({ module: "email-dispatcher" });
+
+  const createResendClient = (apiKey: string) => {
+    const factory = deps.resendFactory ?? ((key: string) => new Resend(key));
+    return factory(apiKey);
+  };
+
+  const createTransporter = (options: { user: string; pass: string }) => {
+    const factory =
+      deps.transporterFactory ??
+      ((credentials: { user: string; pass: string }) =>
+        nodemailer.createTransport({
+          service: "gmail",
+          auth: {
+            user: credentials.user,
+            pass: credentials.pass,
+          },
+        }));
+    return factory(options);
+  };
+
+  async function sendEmail(
+    request: EmailRequest,
+  ): Promise<EmailDispatchResult> {
+    const { subject, html, text, attachments = [], fromName, to } = request;
+    const recipient = to ?? config.frameRecipient;
+    const displayName = fromName ?? DEFAULT_FROM_NAME;
+
+    serviceLogger.debug("Dispatching email", {
+      subjectLength: subject.length,
+      attachmentCount: attachments.length,
+      provider: config.provider,
+      recipient,
     });
 
-    const info = await transporter.sendMail({
-      from: `"100 Years Ago Today" <${cronConfig.email.gmail.user}>`,
-      to: cronConfig.email.frameEmail,
-      subject,
-      html,
-      attachments,
-    });
+    if (config.provider === "gmail") {
+      const gmailConfig = config.gmail;
+      if (!gmailConfig) {
+        throw new Error("Gmail configuration missing");
+      }
 
-    logger.info("Email sent via Gmail", { messageId: info.messageId });
+      const transporter = createTransporter({
+        user: gmailConfig.user,
+        pass: gmailConfig.appPassword,
+      });
 
-    return {
-      provider: "gmail",
-      id: info.messageId,
-    };
-  } else if (cronConfig.email.resend) {
-    logger.debug("Sending email via Resend");
+      const info = await transporter.sendMail({
+        from: `"${displayName}" <${gmailConfig.user}>`,
+        to: recipient,
+        subject,
+        html,
+        text,
+        attachments,
+      });
 
-    const resend = new Resend(cronConfig.email.resend.apiKey);
+      serviceLogger.info("Email sent via Gmail", {
+        messageId: info?.messageId ?? null,
+      });
+      return { provider: "gmail", id: info?.messageId ?? null };
+    }
 
+    const resendConfig = config.resend;
+    if (!resendConfig) {
+      throw new Error("Resend configuration missing");
+    }
+
+    const resend = createResendClient(resendConfig.apiKey);
     const { data, error } = await resend.emails.send({
-      from: `100 Years Ago Today <${cronConfig.email.resend.fromEmail}>`,
-      to: [cronConfig.email.frameEmail],
+      from: `${displayName} <${resendConfig.fromEmail}>`,
+      to: [recipient],
       subject,
       html,
+      text,
       attachments,
     });
 
     if (error) {
-      logger.error("Resend email failed", { error: error.message });
+      serviceLogger.error("Resend send failed", { message: error.message });
       throw new Error(`Resend Error: ${error.message}`);
     }
 
-    logger.info("Email sent via Resend", { id: data?.id });
-
-    return {
-      provider: "resend",
-      id: data?.id || "unknown",
-    };
-  } else {
-    throw new Error("No email provider configured (neither Gmail nor Resend)");
+    serviceLogger.info("Email sent via Resend", { id: data?.id ?? null });
+    return { provider: "resend", id: data?.id ?? null };
   }
+
+  return {
+    sendEmail,
+  };
 }
+
+export const emailDispatcher = createEmailDispatcher();
+
+export const sendEmail = (request: EmailRequest) =>
+  emailDispatcher.sendEmail(request);

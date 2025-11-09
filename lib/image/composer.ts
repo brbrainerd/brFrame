@@ -1,9 +1,26 @@
 import sharp from "sharp";
 import { formatInTimeZone } from "date-fns-tz";
-import { createCanvas } from "canvas";
-import { logger } from "../logger";
 
-export interface ComposedImage {
+import { createLogger } from "../logger";
+
+const logger = createLogger({ module: "image-composer" });
+
+export interface ImageComposerOptions {
+  image: Buffer;
+  title: string;
+  subreddit: string;
+  generatedAt: Date;
+  timezone?: string;
+  attribution?: string;
+  credits?: string;
+  maxTitleLength?: number;
+  overlayHeight?: number;
+  outputWidth?: number;
+  outputHeight?: number;
+  quality?: number;
+}
+
+export interface ImageComposerResult {
   finalImage: Buffer;
   overlaySvg: string;
   processedMetadata: {
@@ -13,96 +30,91 @@ export interface ComposedImage {
   };
 }
 
-export async function composeHistoricalImage(params: {
-  image: Buffer;
-  title: string;
-  subreddit: string;
-  generatedAt: Date;
-}): Promise<ComposedImage> {
-  const { image: imageBuffer, title } = params;
-  logger.debug("Starting image composition");
+const DEFAULTS = {
+  timezone: "America/New_York",
+  attribution: "100 Years Ago Today",
+  credits: "Built by Bertrand Reyna-Brainerd",
+  maxTitleLength: 80,
+  overlayHeight: 160,
+  outputWidth: 1024,
+  outputHeight: 768,
+  quality: 90,
+} as const;
 
-  // Get image metadata
-  const metadata = await sharp(imageBuffer).metadata();
+function escapeXml(input: string) {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+export async function composeHistoricalImage(
+  options: ImageComposerOptions,
+): Promise<ImageComposerResult> {
+  const {
+    image,
+    title,
+    subreddit,
+    generatedAt,
+    timezone = DEFAULTS.timezone,
+    attribution = DEFAULTS.attribution,
+    credits = DEFAULTS.credits,
+    maxTitleLength = DEFAULTS.maxTitleLength,
+    overlayHeight = DEFAULTS.overlayHeight,
+    outputWidth = DEFAULTS.outputWidth,
+    outputHeight = DEFAULTS.outputHeight,
+    quality = DEFAULTS.quality,
+  } = options;
+
+  logger.debug("Starting image composition", { titleLength: title.length });
+
+  const metadata = await sharp(image).metadata();
   logger.debug("Image metadata retrieved", {
     width: metadata.width,
     height: metadata.height,
     format: metadata.format,
   });
 
-  // Resize and process image with contain (no cropping)
-  const processedImage = await sharp(imageBuffer)
-    .resize(1024, 768, {
-      fit: "contain", // Fit entire image without cropping
-      background: { r: 0, g: 0, b: 0 }, // Black letterbox bars
-      position: "center", // Center the image
+  const processedImage = await sharp(image)
+    .resize(outputWidth, outputHeight, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0 },
     })
-    .jpeg({ quality: 90 })
+    .flatten({ background: { r: 0, g: 0, b: 0 } })
+    .jpeg({ quality })
     .toBuffer();
 
-  logger.debug("Image resized with contain mode - full image visible");
-
-  // Create text overlay
-  const now = new Date();
-  const estTime = formatInTimeZone(
-    now,
-    "America/New_York",
+  const timestamp = formatInTimeZone(
+    generatedAt,
+    timezone,
     "MMMM d, yyyy h:mm a z",
   );
-
-  const attribution = "100 Years Ago Today";
-  const credits = "Built by Bertrand Reyna-Brainerd";
-
-  // Truncate title if too long
-  const maxTitleLength = 80;
   const displayTitle =
     title.length > maxTitleLength
-      ? title.substring(0, maxTitleLength) + "..."
+      ? `${title.slice(0, maxTitleLength)}...`
       : title;
 
-  const overlayHeight = 160;
+  const overlaySvg = `
+    <svg width="${outputWidth}" height="${overlayHeight}">
+      <rect width="${outputWidth}" height="${overlayHeight}" fill="rgba(0,0,0,0.85)"/>
+      <text x="20" y="35" font-family="Arial, sans-serif" font-size="18" fill="white">${escapeXml(attribution)}</text>
+      <text x="20" y="70" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">${escapeXml(displayTitle)}</text>
+      <text x="20" y="110" font-family="Arial, sans-serif" font-size="16" fill="white">r/${escapeXml(subreddit)} • ${escapeXml(timestamp)}</text>
+      <text x="20" y="140" font-family="Arial, sans-serif" font-size="14" fill="#cccccc">${escapeXml(credits)}</text>
+    </svg>
+  `;
 
-  // Create canvas for text overlay
-  const canvas = createCanvas(1024, overlayHeight);
-  const ctx = canvas.getContext("2d");
+  const overlayBuffer = await sharp(Buffer.from(overlaySvg)).png().toBuffer();
 
-  // Background
-  ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
-  ctx.fillRect(0, 0, 1024, overlayHeight);
-
-  // Text styling
-  ctx.fillStyle = "white";
-
-  // Attribution
-  ctx.font = "18px Arial";
-  ctx.fillText(attribution, 20, 35);
-
-  // Title
-  ctx.font = "bold 24px Arial";
-  ctx.fillText(displayTitle, 20, 70);
-
-  // Time and subreddit
-  ctx.font = "16px Arial";
-  ctx.fillText(`r/100yearsago • ${estTime}`, 20, 110);
-
-  // Credits
-  ctx.font = "14px Arial";
-  ctx.fillStyle = "#cccccc";
-  ctx.fillText(credits, 20, 140);
-
-  // Convert canvas to buffer
-  const overlayBuffer = canvas.toBuffer("image/png");
-
-  // Composite the overlay onto the processed image
   const finalImage = await sharp(processedImage)
     .composite([
       {
         input: overlayBuffer,
-        top: 768 - overlayHeight,
+        top: outputHeight - overlayHeight,
         left: 0,
       },
     ])
-    .jpeg({ quality: 90 })
+    .jpeg({ quality })
     .toBuffer();
 
   logger.debug("Image composition complete", {
@@ -112,10 +124,10 @@ export async function composeHistoricalImage(params: {
 
   return {
     finalImage,
-    overlaySvg: "<svg />", // Placeholder for compatibility
+    overlaySvg,
     processedMetadata: {
-      width: 1024,
-      height: 768,
+      width: outputWidth,
+      height: outputHeight,
       overlayHeight,
     },
   };

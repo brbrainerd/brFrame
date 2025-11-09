@@ -67,4 +67,10 @@ class Logger {
   }
 }
 
+export function createLogger(context: Record<string, unknown> = {}): Logger {
+  return new Logger(context);
+}
+
+export type { Logger };
+
 export const logger = new Logger({ service: "cron" });

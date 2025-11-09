@@ -1,13 +1,21 @@
 import { Buffer } from "node:buffer";
-import { cronConfig } from "../config/cron";
-import { logger } from "../logger";
 
-export interface RedditPost {
+import type { CronConfig } from "../config/cron";
+import { cronConfig } from "../config/cron";
+import { createLogger, type Logger } from "../logger";
+
+const MATCH_STEPS = [
+  { label: "exact", daysRange: 0, yearsRange: 0, priority: 1 } as const,
+  { label: "day-offset", daysRange: 3, yearsRange: 0, priority: 2 } as const,
+  { label: "year-offset", daysRange: 0, yearsRange: 1, priority: 3 } as const,
+];
+
+export interface HistoricalRedditPost {
   title: string;
   imageUrl: string;
   score: number;
   permalink: string;
-  matchType: "exact" | "±3 days" | "±1 year";
+  matchType: (typeof MATCH_STEPS)[number]["label"];
 }
 
 function getDaySuffix(day: number): string {
@@ -24,299 +32,280 @@ function getDaySuffix(day: number): string {
   }
 }
 
-function matchesDate(
-  postTitle: string,
-  month: string,
-  day: number,
-  year: number,
-): boolean {
-  const dayWithSuffix = day + getDaySuffix(day);
+function buildDateVariants(month: string, day: number, year: number) {
+  const suffix = getDaySuffix(day);
+  return [
+    `[${month} ${day}${suffix}, ${year}]`,
+    `[${month} ${day}, ${year}]`,
+    `[${month} ${day}${suffix} ${year}]`,
+    `[${month} ${day} ${year}]`,
+  ];
+}
 
-  const pattern1 = `[${month} ${dayWithSuffix}, ${year}]`;
-  const pattern2 = `[${month} ${day}, ${year}]`;
-  const pattern3 = `[${month} ${dayWithSuffix} ${year}]`; // Without comma
-  const pattern4 = `[${month} ${day} ${year}]`; // Without comma or suffix
-
-  return (
-    postTitle.includes(pattern1) ||
-    postTitle.includes(pattern2) ||
-    postTitle.includes(pattern3) ||
-    postTitle.includes(pattern4)
+function matchesDate(title: string, month: string, day: number, year: number) {
+  return buildDateVariants(month, day, year).some((variant) =>
+    title.includes(variant),
   );
 }
 
-function isPostForTodayFuzzy(
-  postTitle: string,
-  daysRange: number = 0,
-  yearsRange: number = 0,
-): { matches: boolean; priority: number } {
-  const today = new Date();
-  const historicalDate = new Date(today);
-  historicalDate.setFullYear(today.getFullYear() - 100);
+function evaluateMatch(
+  title: string,
+  baseDate: Date,
+  step: (typeof MATCH_STEPS)[number],
+) {
+  const month = baseDate.toLocaleString("en-US", { month: "long" });
+  const day = baseDate.getDate();
+  const year = baseDate.getFullYear();
 
-  const month = historicalDate.toLocaleString("en-US", { month: "long" });
-  const day = historicalDate.getDate();
-  const year = historicalDate.getFullYear();
-
-  // Priority 1: Exact date match
-  if (matchesDate(postTitle, month, day, year)) {
-    return { matches: true, priority: 1 };
+  if (matchesDate(title, month, day, year)) {
+    return { matches: true, priority: step.priority, matchType: step.label };
   }
 
-  // Priority 2: Nearby days in the same year
-  if (daysRange > 0) {
-    for (let dayOffset = 1; dayOffset <= daysRange; dayOffset++) {
-      const nearbyDate = new Date(historicalDate);
-      nearbyDate.setDate(historicalDate.getDate() + dayOffset);
+  if (step.daysRange > 0) {
+    for (let offset = 1; offset <= step.daysRange; offset++) {
+      const forward = new Date(baseDate);
+      forward.setDate(baseDate.getDate() + offset);
       if (
         matchesDate(
-          postTitle,
-          nearbyDate.toLocaleString("en-US", { month: "long" }),
-          nearbyDate.getDate(),
+          title,
+          forward.toLocaleString("en-US", { month: "long" }),
+          forward.getDate(),
           year,
         )
       ) {
-        return { matches: true, priority: 2 };
+        return {
+          matches: true,
+          priority: step.priority,
+          matchType: step.label,
+        };
       }
 
-      nearbyDate.setDate(historicalDate.getDate() - dayOffset);
+      const backward = new Date(baseDate);
+      backward.setDate(baseDate.getDate() - offset);
       if (
         matchesDate(
-          postTitle,
-          nearbyDate.toLocaleString("en-US", { month: "long" }),
-          nearbyDate.getDate(),
+          title,
+          backward.toLocaleString("en-US", { month: "long" }),
+          backward.getDate(),
           year,
         )
       ) {
-        return { matches: true, priority: 2 };
+        return {
+          matches: true,
+          priority: step.priority,
+          matchType: step.label,
+        };
       }
     }
   }
 
-  // Priority 3: Same day, nearby years
-  if (yearsRange > 0) {
-    for (let yearOffset = 1; yearOffset <= yearsRange; yearOffset++) {
-      if (matchesDate(postTitle, month, day, year + yearOffset)) {
-        return { matches: true, priority: 3 };
+  if (step.yearsRange > 0) {
+    for (let offset = 1; offset <= step.yearsRange; offset++) {
+      if (matchesDate(title, month, day, year + offset)) {
+        return {
+          matches: true,
+          priority: step.priority,
+          matchType: step.label,
+        };
       }
-      if (matchesDate(postTitle, month, day, year - yearOffset)) {
-        return { matches: true, priority: 3 };
+      if (matchesDate(title, month, day, year - offset)) {
+        return {
+          matches: true,
+          priority: step.priority,
+          matchType: step.label,
+        };
       }
     }
   }
 
-  return { matches: false, priority: 999 };
-}
-
-async function getRedditAccessToken(): Promise<string> {
-  const clientId = cronConfig.reddit.clientId.trim();
-  const clientSecret = cronConfig.reddit.clientSecret.trim();
-
-  logger.debug("Requesting Reddit OAuth token", {
-    hasClientId: !!clientId,
-    clientIdLength: clientId.length,
-  });
-
-  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
-
-  const response = await fetch("https://www.reddit.com/api/v1/access_token", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": "brFrame/1.0.0",
-    },
-    body: "grant_type=client_credentials",
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    logger.error("Reddit OAuth failed", {
-      status: response.status,
-      statusText: response.statusText,
-      error: errorText.substring(0, 200),
-    });
-    throw new Error(
-      `Reddit OAuth failed: ${response.status} ${response.statusText}`,
-    );
-  }
-
-  const data = await response.json();
-  logger.debug("Reddit OAuth token obtained");
-  return data.access_token;
+  return {
+    matches: false,
+    priority: Number.MAX_SAFE_INTEGER,
+    matchType: step.label,
+  };
 }
 
 function extractImageFromPost(post: any): string | null {
   const imageExtensions = [".jpg", ".jpeg", ".png", ".gif"];
 
-  // Check for direct image URL
   if (post.url) {
-    const hasImageExtension = imageExtensions.some((ext) =>
-      post.url.toLowerCase().endsWith(ext),
-    );
-    if (hasImageExtension) {
+    const lower = post.url.toLowerCase();
+    if (imageExtensions.some((ext) => lower.endsWith(ext))) {
       return post.url;
     }
   }
 
-  // Check for gallery posts
   if (post.is_gallery && post.media_metadata) {
-    const mediaIds = Object.keys(post.media_metadata);
-    if (mediaIds.length > 0) {
-      const firstMedia = post.media_metadata[mediaIds[0]];
-      if (firstMedia.s?.u) {
-        return firstMedia.s.u.replace(/&amp;/g, "&");
-      }
+    const firstMedia = Object.values(post.media_metadata)[0];
+    const galleryUrl = firstMedia?.s?.u;
+    if (galleryUrl) {
+      return galleryUrl.replace(/&amp;/g, "&");
     }
   }
 
-  // Check for preview images as fallback
-  if (post.preview?.images?.[0]?.source?.url) {
-    return post.preview.images[0].source.url.replace(/&amp;/g, "&");
+  const previewUrl = post.preview?.images?.[0]?.source?.url;
+  if (previewUrl) {
+    return previewUrl.replace(/&amp;/g, "&");
   }
 
   return null;
 }
 
-export async function fetchHistoricalRedditPost(): Promise<RedditPost> {
-  const subreddit = cronConfig.reddit.subreddit;
+export interface RedditServiceDependencies {
+  fetchImpl?: typeof fetch;
+  now?: () => Date;
+  config?: CronConfig;
+  logger?: Logger;
+}
 
-  logger.info("Fetching posts from Reddit", { subreddit });
+export function createRedditService(deps: RedditServiceDependencies = {}) {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const now = deps.now ?? (() => new Date());
+  const config = deps.config ?? cronConfig;
+  const serviceLogger =
+    deps.logger ?? createLogger({ module: "reddit-service" });
 
-  const today = new Date();
-  const historicalDate = new Date(today);
-  historicalDate.setFullYear(today.getFullYear() - 100);
-  const month = historicalDate.toLocaleString("en-US", { month: "long" });
-  const day = historicalDate.getDate();
-  const year = historicalDate.getFullYear();
-  const targetDateString = `${month} ${day}, ${year}`;
+  async function getAccessToken(): Promise<string> {
+    const clientId = config.reddit.clientId.trim();
+    const clientSecret = config.reddit.clientSecret.trim();
 
-  logger.debug("Looking for historical date", { targetDate: targetDateString });
+    serviceLogger.debug("Requesting Reddit OAuth token", {
+      hasClientId: !!clientId,
+      clientIdLength: clientId.length,
+    });
 
-  const accessToken = await getRedditAccessToken();
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
 
-  const response = await fetch(
-    `https://oauth.reddit.com/r/${subreddit}/hot?limit=50`,
-    {
+    const response = await fetchImpl(
+      "https://www.reddit.com/api/v1/access_token",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "brFrame/1.0.0",
+        },
+        body: "grant_type=client_credentials",
+      },
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      serviceLogger.error("Reddit OAuth failed", {
+        status: response.status,
+        statusText: response.statusText,
+        bodySnippet: errorText.slice(0, 200),
+      });
+      throw new Error(
+        `Reddit OAuth failed: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  }
+
+  async function fetchPosts(accessToken: string) {
+    const url = new URL(
+      `/r/${config.reddit.subreddit}/hot`,
+      "https://oauth.reddit.com",
+    );
+    url.searchParams.set("limit", "50");
+
+    const response = await fetchImpl(url, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "User-Agent": "brFrame/1.0.0",
       },
-      cache: "no-store",
-    },
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    logger.error("Reddit API request failed", {
-      status: response.status,
-      error: errorText.substring(0, 500),
+      cache: "no-store" as RequestCache,
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      serviceLogger.error("Reddit listing failed", {
+        status: response.status,
+        statusText: response.statusText,
+        bodySnippet: errorText.slice(0, 200),
+      });
+      throw new Error(
+        `Reddit API failed: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const payload = await response.json();
+    return payload.data.children.map((child: any) => child.data);
+  }
+
+  function selectBestPost(posts: any[]): HistoricalRedditPost {
+    const today = now();
+    const historicalDate = new Date(today);
+    historicalDate.setFullYear(today.getFullYear() - 100);
+
+    for (const step of MATCH_STEPS) {
+      const matches = posts
+        .map((post) => ({
+          post,
+          evaluation: evaluateMatch(post.title, historicalDate, step),
+          imageUrl: extractImageFromPost(post),
+        }))
+        .filter(
+          (candidate) => candidate.evaluation.matches && candidate.imageUrl,
+        );
+
+      if (matches.length > 0) {
+        matches.sort((a, b) => {
+          if (a.evaluation.priority !== b.evaluation.priority) {
+            return a.evaluation.priority - b.evaluation.priority;
+          }
+          return b.post.score - a.post.score;
+        });
+
+        const best = matches[0];
+        return {
+          title: best.post.title,
+          imageUrl: best.imageUrl!,
+          score: best.post.score,
+          permalink: `https://www.reddit.com${best.post.permalink}`,
+          matchType: step.label,
+        };
+      }
+    }
+
     throw new Error(
-      `Reddit API failed: ${response.status} ${response.statusText}`,
+      `No posts found for ${config.reddit.subreddit} matching today's historical date (searched exact, ±days, ±years).`,
     );
   }
 
-  const data = await response.json();
-  const posts = data.data.children.map((child: any) => child.data);
-
-  logger.debug("Retrieved posts from subreddit", { count: posts.length });
-
-  // Try progressive fuzzy matching
-  let validPosts: any[] = [];
-  let matchType: "exact" | "±3 days" | "±1 year" = "exact";
-
-  // Attempt 1: Exact date match
-  validPosts = posts
-    .map((post: any) => ({
-      post,
-      match: isPostForTodayFuzzy(post.title, 0, 0),
-      imageUrl: extractImageFromPost(post),
-    }))
-    .filter(({ match, imageUrl }: any) => match.matches && imageUrl)
-    .map(({ post, match, imageUrl }: any) => ({
-      ...post,
-      _priority: match.priority,
-      _imageUrl: imageUrl,
-    }));
-
-  if (validPosts.length > 0) {
-    logger.debug("Found exact date matches", { count: validPosts.length });
+  async function fetchHistoricalPost(): Promise<HistoricalRedditPost> {
+    serviceLogger.info("Fetching posts from Reddit", {
+      subreddit: config.reddit.subreddit,
+    });
+    const accessToken = await getAccessToken();
+    const posts = await fetchPosts(accessToken);
+    const best = selectBestPost(posts);
+    serviceLogger.info("Historical post selected", {
+      title: best.title,
+      matchType: best.matchType,
+      score: best.score,
+    });
+    return best;
   }
-
-  // Attempt 2: ±3 days
-  if (validPosts.length === 0) {
-    logger.debug("No exact matches, trying ±3 days");
-    matchType = "±3 days";
-    validPosts = posts
-      .map((post: any) => ({
-        post,
-        match: isPostForTodayFuzzy(post.title, 3, 0),
-        imageUrl: extractImageFromPost(post),
-      }))
-      .filter(({ match, imageUrl }: any) => match.matches && imageUrl)
-      .map(({ post, match, imageUrl }: any) => ({
-        ...post,
-        _priority: match.priority,
-        _imageUrl: imageUrl,
-      }));
-
-    if (validPosts.length > 0) {
-      logger.debug("Found matches within ±3 days", {
-        count: validPosts.length,
-      });
-    }
-  }
-
-  // Attempt 3: ±1 year
-  if (validPosts.length === 0) {
-    logger.debug("No matches in date range, trying ±1 year");
-    matchType = "±1 year";
-    validPosts = posts
-      .map((post: any) => ({
-        post,
-        match: isPostForTodayFuzzy(post.title, 0, 1),
-        imageUrl: extractImageFromPost(post),
-      }))
-      .filter(({ match, imageUrl }: any) => match.matches && imageUrl)
-      .map(({ post, match, imageUrl }: any) => ({
-        ...post,
-        _priority: match.priority,
-        _imageUrl: imageUrl,
-      }));
-
-    if (validPosts.length > 0) {
-      logger.debug("Found matches within ±1 year", {
-        count: validPosts.length,
-      });
-    }
-  }
-
-  if (validPosts.length === 0) {
-    throw new Error(
-      `No posts found for ${targetDateString} with images (tried: exact, ±3 days, ±1 year)`,
-    );
-  }
-
-  // Sort by priority, then by score
-  validPosts.sort((a: any, b: any) => {
-    if (a._priority !== b._priority) return a._priority - b._priority;
-    return b.score - a.score;
-  });
-
-  const bestPost = validPosts[0];
-
-  logger.info("Selected historical post", {
-    title: bestPost.title.substring(0, 100),
-    score: bestPost.score,
-    matchType,
-  });
 
   return {
-    title: bestPost.title,
-    imageUrl: bestPost._imageUrl,
-    score: bestPost.score,
-    permalink: `https://www.reddit.com${bestPost.permalink}`,
-    matchType,
+    fetchHistoricalPost,
   };
 }
+
+export const redditService = createRedditService();
+
+export const fetchHistoricalRedditPost = () =>
+  redditService.fetchHistoricalPost();
+
+export const __test__ = {
+  getDaySuffix,
+  buildDateVariants,
+  matchesDate,
+  evaluateMatch,
+  extractImageFromPost,
+  MATCH_STEPS,
+};
