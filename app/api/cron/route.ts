@@ -368,9 +368,9 @@ export async function GET(request: NextRequest) {
     // Calculate dynamic overlay height (simple fixed height based on content)
     const overlayHeight = 160;  // Fixed height for consistency
     
-    // Fetch Inter font from Google Fonts for Satori
+    // Fetch Inter font from GitHub for Satori (reliable source)
     console.log('[Image Processing] Fetching font for text rendering...');
-    const fontResponse = await fetch('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff');
+    const fontResponse = await fetch('https://github.com/rsms/inter/raw/master/docs/font-files/Inter-Regular.ttf');
     const fontData = await fontResponse.arrayBuffer();
     
     // Create SVG markup using Satori with React elements
