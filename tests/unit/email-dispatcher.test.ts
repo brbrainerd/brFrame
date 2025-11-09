@@ -4,8 +4,7 @@ import type { CronConfig } from "../../lib/config/cron";
 import { createEmailDispatcher } from "../../lib/email/dispatcher";
 
 const resendConfig: CronConfig["email"] = {
-  frameRecipient: "frame@example.com",
-  provider: "resend",
+  frameEmail: "frame@example.com",
   resend: {
     apiKey: "resend-key",
     fromEmail: "from@example.com",
@@ -13,8 +12,7 @@ const resendConfig: CronConfig["email"] = {
 };
 
 const gmailConfig: CronConfig["email"] = {
-  frameRecipient: "frame@example.com",
-  provider: "gmail",
+  frameEmail: "frame@example.com",
   gmail: {
     user: "frame@example.com",
     appPassword: "app-pass",

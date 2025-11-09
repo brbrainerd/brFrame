@@ -12,22 +12,19 @@ const TEST_CONFIG: CronConfig = {
     subreddit: "100yearsago",
   },
   email: {
-    frameRecipient: "frame@example.com",
-    provider: "resend",
+    frameEmail: "frame@example.com",
     resend: { apiKey: "key", fromEmail: "from@example.com" },
   },
-  logging: { level: "debug" },
 };
 
 const createTestLogger = () => {
-  const logger: Logger = {
+  const logger = {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
     child: () => logger,
-    withLevel: () => logger,
-  };
+  } as unknown as Logger;
   return logger;
 };
 

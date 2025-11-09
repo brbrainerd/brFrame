@@ -136,7 +136,7 @@ function extractImageFromPost(post: any): string | null {
   }
 
   if (post.is_gallery && post.media_metadata) {
-    const firstMedia = Object.values(post.media_metadata)[0];
+    const firstMedia = Object.values(post.media_metadata)[0] as any;
     const galleryUrl = firstMedia?.s?.u;
     if (galleryUrl) {
       return galleryUrl.replace(/&amp;/g, "&");

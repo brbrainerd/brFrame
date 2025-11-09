@@ -65,17 +65,19 @@ export function createEmailDispatcher(deps: EmailDispatcherDependencies = {}) {
     request: EmailRequest,
   ): Promise<EmailDispatchResult> {
     const { subject, html, text, attachments = [], fromName, to } = request;
-    const recipient = to ?? config.frameRecipient;
+    const recipient = to ?? config.frameEmail;
     const displayName = fromName ?? DEFAULT_FROM_NAME;
+
+    const provider = config.gmail ? "gmail" : "resend";
 
     serviceLogger.debug("Dispatching email", {
       subjectLength: subject.length,
       attachmentCount: attachments.length,
-      provider: config.provider,
+      provider,
       recipient,
     });
 
-    if (config.provider === "gmail") {
+    if (config.gmail) {
       const gmailConfig = config.gmail;
       if (!gmailConfig) {
         throw new Error("Gmail configuration missing");
