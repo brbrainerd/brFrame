@@ -1,13 +1,13 @@
-import { defineConfig } from 'vitest/config'
-import tsconfigPaths from 'vite-tsconfig-paths'
+import { defineConfig } from "vitest/config";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
-    environment: 'node',
+    environment: "node",
     globals: true,
-    include: ['tests/e2e/**/*.test.ts'], // ONLY run E2E tests
+    setupFiles: ["./tests/setup.ts"], // Use the same setup file
+    include: ["tests/e2e/**/*.test.ts"], // ONLY run E2E tests
     testTimeout: 30000, // Long timeout for real network calls
   },
-})
-
+});

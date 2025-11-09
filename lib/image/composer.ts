@@ -79,10 +79,12 @@ export async function composeHistoricalImage(
     .resize(outputWidth, outputHeight, {
       fit: "contain",
       background: { r: 0, g: 0, b: 0 },
+      position: "center",
     })
-    .flatten({ background: { r: 0, g: 0, b: 0 } })
     .jpeg({ quality })
     .toBuffer();
+
+  logger.debug("Image resized with contain - full image visible");
 
   const timestamp = formatInTimeZone(
     generatedAt,
