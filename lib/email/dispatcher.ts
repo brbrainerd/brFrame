@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 import type { CronConfig } from "../config/cron";
 import { cronConfig } from "../config/cron";
@@ -31,7 +31,7 @@ export interface EmailDispatcherDependencies {
   transporterFactory?: (options: {
     user: string;
     pass: string;
-  }) => nodemailer.Transporter;
+  }) => Transporter;
   logger?: Logger;
 }
 
