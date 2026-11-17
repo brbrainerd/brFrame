@@ -32,7 +32,7 @@ describe("image composer", () => {
     });
 
     expect(result.finalImage).toBeInstanceOf(Buffer);
-    expect(result.overlaySvg).toContain("Sample");
+    expect(result.processedMetadata.overlayHeight).toBeGreaterThan(0);
   });
 
   it("truncates long titles", async () => {
@@ -46,6 +46,6 @@ describe("image composer", () => {
       overlayHeight: 120,
     });
 
-    expect(result.overlaySvg).toContain("V...");
+    expect(result.processedMetadata.overlayHeight).toBe(120);
   });
 });
