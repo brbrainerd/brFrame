@@ -1,0 +1,17 @@
+# Coolify compose for brFrame. No domain: the app only needs to be called by its own
+# scheduled task (see deploy/helios/README.md); a Coolify domain would publish it.
+services:
+  app:
+    image: ${GHCR_IMAGE_WEB:?Set GHCR_IMAGE_WEB to ghcr.io/brbrainerd/brframe:<40-hex-sha>}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3430:3000"
+    environment:
+      - CRON_SECRET=${CRON_SECRET:?}
+      - FRAME_EMAIL=${FRAME_EMAIL:?}
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:?}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:?}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-}
+      - GMAIL_USER=${GMAIL_USER:-}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD:-}

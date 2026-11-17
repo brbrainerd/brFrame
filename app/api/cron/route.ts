@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { cronConfig } from "../../../lib/config/cron";
+import { cronState } from "../../../lib/cron-state";
 import { logger } from "../../../lib/logger";
 import { fetchHistoricalRedditPost } from "../../../lib/reddit/service";
 import { composeHistoricalImage } from "../../../lib/image/composer";
@@ -96,6 +97,7 @@ export function createCronHandler(deps: CronHandlerDependencies = {}) {
       });
 
       jobLogger.info("Email dispatched successfully", { ...emailResult });
+      cronState.last = { at: new Date().toISOString(), success: true };
 
       return NextResponse.json({
         success: true,
@@ -109,6 +111,11 @@ export function createCronHandler(deps: CronHandlerDependencies = {}) {
         error: message,
       });
 
+      cronState.last = {
+        at: new Date().toISOString(),
+        success: false,
+        error: message,
+      };
       return NextResponse.json(
         { success: false, error: message },
         { status: 500 },

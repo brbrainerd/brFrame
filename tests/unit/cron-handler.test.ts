@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockFetch } from "../setup";
 
 import { createCronHandler } from "../../app/api/cron/route";
+import { cronState } from "../../lib/cron-state";
 
 const fetchHistoricalRedditPostMock = vi.fn();
 const composeHistoricalImageMock = vi.fn();
@@ -75,6 +76,7 @@ describe("/api/cron route", () => {
       id: "email-123",
       matchType: "exact",
     });
+    expect(cronState.last).toMatchObject({ success: true });
     expect(fetchHistoricalRedditPostMock).toHaveBeenCalled();
     expect(composeHistoricalImageMock).toHaveBeenCalled();
     expect(sendEmailMock).toHaveBeenCalledWith(
